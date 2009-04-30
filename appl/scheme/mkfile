@@ -1,0 +1,37 @@
+<../../mkconfig
+
+TARG=\
+	builtin.dis\
+	cell.dis\
+	scheme.dis\
+	sform.dis\
+
+MODULES=\
+	builtin.m\
+	cell.m\
+	scheme.m\
+	sform.m\
+
+SYSMODULES=\
+	bufio.m\
+	draw.m\
+	math.m\
+	sh.m\
+	string.m\
+	sys.m\
+
+DISBIN=$ROOT/dis/scheme
+
+all:V:	scheme.dis
+
+<$ROOT/mkfiles/mkdis
+
+install:V:	$ROOT/dis/scheme.dis
+
+$ROOT/dis/scheme.dis:	scheme.dis
+	rm -r $target && cp scheme.dis $target
+
+scheme.dis:	$MODULES $SYS_MODULES
+
+nuke:V:
+	rm -f $ROOT/dis/scheme.dis
