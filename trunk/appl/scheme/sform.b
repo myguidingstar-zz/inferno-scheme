@@ -19,7 +19,7 @@ eval: import scheme;
 
 include "sform.m";
 
-init(sys: Sys, sch: Scheme, c: SCell)
+init(nil: Sys, sch: Scheme, c: SCell)
 {
 	cell = c;
 	scheme = sch;

@@ -329,12 +329,12 @@ atan(args: ref Cell): ref Cell
 	return nil;
 }
 
-callwcont(args: ref Cell): ref Cell
+callwcont(nil: ref Cell): ref Cell
 {
 	return ref Cell.Link(nil);
 }
 
-callwval(args: ref Cell): ref Cell
+callwval(nil: ref Cell): ref Cell
 {
 	return ref Cell.Link(nil);
 }
@@ -600,12 +600,12 @@ cos(args: ref Cell): ref Cell
 	return nil;
 }
 
-curinport(args: ref Cell): ref Cell
+curinport(nil: ref Cell): ref Cell
 {
 	return ref Cell.Port(stdin, Bufio->OREAD);
 }
 
-curoutport(args: ref Cell): ref Cell
+curoutport(nil: ref Cell): ref Cell
 {
 	return ref Cell.Port(stdout, Bufio->OWRITE);
 }
@@ -684,7 +684,7 @@ divide(args: ref Cell): ref Cell
 	return nil;
 }
 
-dynwind(args:ref Cell): ref Cell
+dynwind(nil:ref Cell): ref Cell
 {
 	return ref Cell.Link(nil);
 }
@@ -2256,7 +2256,7 @@ truncate(args: ref Cell): ref Cell
 	return nil;
 }
 
-values(args: ref Cell): ref Cell
+values(nil: ref Cell): ref Cell
 {
 	return ref Cell.Link(nil);
 }
