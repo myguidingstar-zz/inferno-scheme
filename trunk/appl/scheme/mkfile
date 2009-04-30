@@ -36,7 +36,7 @@ $DISBIN:
 $LIBDIR:
 	mkdir $LIBDIR
 
-install:V:	$ROOT/dis/scheme.dis $LIBTARG
+install:V:	$ROOT/dis/scheme.dis $LIBTARG $ROOT/man/1/scheme
 
 $ROOT/dis/scheme.dis:	$DISBIN scheme.dis
 	rm -f $target && cp scheme.dis $target
@@ -45,6 +45,9 @@ scheme.dis:	$MODULES $SYS_MODULES
 
 $LIBDIR/%: $LIBDIR %
 	rm -f $target && cp $stem $target
+
+$ROOT/man/1/scheme: scheme.1
+	rm -f $target && cp scheme.1 $target
 
 nuke:V:
 	rm -f $ROOT/dis/scheme.dis
