@@ -3,7 +3,6 @@
 TARG=\
 	builtin.dis\
 	cell.dis\
-	scheme.dis\
 	sform.dis\
 
 MODULES=\
@@ -22,16 +21,30 @@ SYSMODULES=\
 
 DISBIN=$ROOT/dis/scheme
 
+LIBDIR=$ROOT/lib/scheme
+
+LIBTARG=\
+	$LIBDIR/library.scm\
+
 all:V:	scheme.dis
 
 <$ROOT/mkfiles/mkdis
 
-install:V:	$ROOT/dis/scheme.dis
+$DISBIN:
+	mkdir $DISBIN
 
-$ROOT/dis/scheme.dis:	scheme.dis
-	rm -r $target && cp scheme.dis $target
+$LIBDIR:
+	mkdir $LIBDIR
+
+install:V:	$ROOT/dis/scheme.dis $LIBTARG
+
+$ROOT/dis/scheme.dis:	$DISBIN scheme.dis
+	rm -f $target && cp scheme.dis $target
 
 scheme.dis:	$MODULES $SYS_MODULES
+
+$LIBDIR/%: $LIBDIR %
+	rm -f $target && cp $stem $target
 
 nuke:V:
 	rm -f $ROOT/dis/scheme.dis
