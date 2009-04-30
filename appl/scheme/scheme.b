@@ -69,7 +69,7 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	builtin->init(sys, load Scheme SELF, cell, math, str,
 		 bufio, stdin, stdout);
 
-	b := bufio->open("/lib/library.scm", Bufio->OREAD);
+	b := bufio->open("/lib/scheme/library.scm", Bufio->OREAD);
 	if(b == nil) {
 		cell->error("Can't open library code\n");
 	}
@@ -593,8 +593,6 @@ printlist(plist: ref Pair, b: ref Iobuf, disp: int)
 
 printvector(v: array of ref Cell, b: ref Iobuf, disp: int)
 {
-	x: ref Pair;
-
 	b.puts("#(");
 	i := 0;
 	while(1) {
