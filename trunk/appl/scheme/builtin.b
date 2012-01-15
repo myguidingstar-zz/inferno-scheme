@@ -71,6 +71,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("char<=?", cell->BuiltIn, nil, charlep) :: e;
 	e = ref Env("char>=?", cell->BuiltIn, nil, chargep) :: e;
 	e = ref Env("char->integer", cell->BuiltIn, nil, char2int) :: e;
+	e = ref Env("close-inout-port", cell->BuiltIn, nil, closeinoutport) :: e;
 	e = ref Env("close-input-port", cell->BuiltIn, nil, closeinport) :: e;
 	e = ref Env("close-output-port", cell->BuiltIn, nil, closeoutport) :: e;
 	e = ref Env("complex?", cell->BuiltIn, nil, complexp) :: e;
@@ -105,6 +106,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("number?", cell->BuiltIn, nil, numberp) :: e;
 	e = ref Env("number->string", cell->BuiltIn, nil, numtostr) :: e;
 	e = ref Env("numerator", cell->BuiltIn, nil, numerator) :: e;
+	e = ref Env("open-inout-file", cell->BuiltIn, nil, openinoutfile) :: e;
 	e = ref Env("open-input-file", cell->BuiltIn, nil, openinfile) :: e;
 	e = ref Env("open-output-file", cell->BuiltIn, nil, openoutfile) :: e;
 	e = ref Env("output-port?", cell->BuiltIn, nil, outportp) :: e;
@@ -553,6 +555,11 @@ closeinport(args: ref Cell): ref Cell
 	return nil;
 }
 
+closeinoutport(args: ref Cell): ref Cell
+{
+	return closeinport(args);
+}
+
 closeoutport(args: ref Cell): ref Cell
 {
 	return closeinport(args);
@@ -894,7 +901,7 @@ inportp(args: ref Cell): ref Cell
 	}
 	pick y := x {
 	Port =>
-		if(y.dir == Bufio->OREAD)
+		if(y.dir == Bufio->OREAD || y.dir == Bufio->ORDWR)
 			return ref Cell.Boolean(1);
 	* =>
 		cell->error("non-numeric argument to inport?\n");
@@ -1445,6 +1452,27 @@ numerator(args: ref Cell): ref Cell
 	return nil;
 }
 
+openinoutfile(args: ref Cell): ref Cell
+{
+	x := cell->lcar(args);
+	if(x == nil) {
+		cell->error("wrong number of arguments to open-input-file\n");
+		return nil;
+	}
+	pick y := x {
+	String =>
+		b := bufio->open(y.str, Bufio->ORDWR);
+		if(b == nil) {
+			cell->error(sys->sprint("Cannot open %s: %r\n", y.str));
+			return nil;
+		}
+		return ref Cell.Port(b, Bufio->ORDWR);
+	* =>
+		cell->error("non-string argument to open-input-file\n");
+	}
+	return nil;
+}
+
 openinfile(args: ref Cell): ref Cell
 {
 	x := cell->lcar(args);
@@ -1496,7 +1524,7 @@ outportp(args: ref Cell): ref Cell
 	}
 	pick y := x {
 	Port =>
-		if(y.dir == Bufio->OWRITE)
+		if(y.dir == Bufio->OWRITE || y.dir == Bufio->ORDWR)
 			return ref Cell.Boolean(1);
 	}
 	return ref Cell.Boolean(0);

@@ -19,10 +19,14 @@ eval: import scheme;
 
 include "sform.m";
 
-init(nil: Sys, sch: Scheme, c: SCell)
+stdout:  ref Iobuf = nil;
+lsys: Sys;
+
+init(sys: Sys, sch: Scheme, c: SCell)
 {
 	cell = c;
 	scheme = sch;
+bufio = load Bufio Bufio->PATH;
 
 	e := cell->envstack;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
@@ -38,6 +42,7 @@ init(nil: Sys, sch: Scheme, c: SCell)
 	e = ref Env("or", cell->SpecialForm, nil, lor) :: e;
 	e = ref Env("case", cell->SpecialForm, nil, lcase) :: e;
 	e = ref Env("cond", cell->SpecialForm, nil, cond) :: e;
+	e = ref Env("do", cell->SpecialForm, nil, ldo) :: e;
 	e = ref Env("let", cell->SpecialForm, nil, let) :: e;
 	e = ref Env("let*", cell->SpecialForm, nil, letstar) :: e;
 	e = ref Env("letrec", cell->SpecialForm, nil, letrec) :: e;
@@ -49,6 +54,8 @@ init(nil: Sys, sch: Scheme, c: SCell)
 			x.val = ref Cell.Symbol(x.name, x);
 		l = tl l;
 	}
+lsys = sys;
+stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
 }
 
 land(args: ref Cell): ref Cell
@@ -91,6 +98,63 @@ begin(args: ref Cell): ref Cell
 		l = cell->lcdr(l);
 	}
 	return c;
+}
+
+ldo(args: ref Cell): ref Cell
+{
+	r: ref Cell;
+
+	oenv := cell->envstack;
+	il := cell->lcar(args);
+	tc := cell->lcdr(args);
+	te := cell->lcar(tc);
+	c := cell->lcdr(tc);
+	ii := il;
+	el := oenv;
+	while(ii != nil && !cell->isnil(ii)) {
+		ij := cell->lcar(ii);
+		pick x := cell->lcar(ij) {
+		Symbol =>
+			(nil, el) = cell->ldefine(x.sym, eval(cell->lcar(cell->lcdr(ij))), el);
+		}
+		ii = cell->lcdr(ii);
+	}
+	cell->envstack = el;
+bigloop:
+	while(1) {
+		tv := eval(cell->lcar(te));
+		if(tv == nil || cell->isnil(tv)) {
+			r = begin(cell->lcdr(te));
+			break;
+		}
+		pick y := tv {
+		Boolean =>
+			if (y.b == 1) {
+				r = begin(cell->lcdr(te));
+				break bigloop;
+			}
+		}
+		if(c != nil && !cell->isnil(c))
+			begin(c);
+
+		ii = il;
+		el = oenv;
+		while(ii != nil && !cell->isnil(ii)) {
+			ij := cell->lcar(ii);
+			pick x := cell->lcar(ij) {
+			Symbol =>
+				upd := cell->lcar(cell->lcdr(cell->lcdr(ij)));
+				if (upd == nil || cell->isnil(upd))
+					(nil, el) = cell->ldefine(x.sym, eval(upd), cell->envstack);
+				else
+					(nil, el) = cell->ldefine(x.sym, eval(upd), el);
+			}
+			ii = cell->lcdr(ii);
+		}
+		cell->envstack = el;
+	}
+	cell->envstack = oenv;
+	return r;
 }
 
 lcase(args: ref Cell): ref Cell
