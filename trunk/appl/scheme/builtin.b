@@ -54,6 +54,8 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env(">", cell->BuiltIn, nil, numgreater) :: e;
 	e = ref Env("<=", cell->BuiltIn, nil, numleq) :: e;
 	e = ref Env(">=", cell->BuiltIn, nil, numgeq) :: e;
+	e = ref Env("<-=", cell->BuiltIn, nil, lsend) :: e;
+	e = ref Env("=<-", cell->BuiltIn, nil, lrecv) :: e;
 	e = ref Env("acos", cell->BuiltIn, nil, acos) :: e;
 	e = ref Env("apply", cell->BuiltIn, nil, apply) :: e;
 	e = ref Env("asin", cell->BuiltIn, nil, asin) :: e;
@@ -64,6 +66,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("car", cell->BuiltIn, nil, car) :: e;
 	e = ref Env("cdr", cell->BuiltIn, nil, cdr) :: e;
 	e = ref Env("ceiling", cell->BuiltIn, nil, ceiling) :: e;
+	e = ref Env("channel", cell->BuiltIn, nil, lchannel) :: e;
 	e = ref Env("char?", cell->BuiltIn, nil, charp) :: e;
 	e = ref Env("char=?", cell->BuiltIn, nil, chareqp) :: e;
 	e = ref Env("char<?", cell->BuiltIn, nil, charltp) :: e;
@@ -126,6 +129,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("set-car!", cell->BuiltIn, nil, setcar) :: e;
 	e = ref Env("set-cdr!", cell->BuiltIn, nil, setcdr) :: e;
 	e = ref Env("sin", cell->BuiltIn, nil, sin) :: e;
+	e = ref Env("spawn", cell->BuiltIn, nil, lspawn) :: e;
 	e = ref Env("sqrt", cell->BuiltIn, nil, sqrt) :: e;
 	e = ref Env("string?", cell->BuiltIn, nil, stringp) :: e;
 	e = ref Env("string-length", cell->BuiltIn, nil, stringlen) :: e;
@@ -376,6 +380,12 @@ ceiling(args: ref Cell): ref Cell
 		cell->error("non-numeric argument to ceiling\n");
 	}
 	return nil;
+}
+
+lchannel(nil: ref Cell): ref Cell
+{
+	c := chan of ref Cell;
+	return ref Cell.Channel(c);
 }
 
 charp(args: ref Cell): ref Cell
@@ -1692,6 +1702,18 @@ realp(args: ref Cell): ref Cell
 	return ref Cell.Boolean(0);
 }
 
+lrecv(args: ref Cell): ref Cell
+{
+	x := cell->lcar(args);
+	pick y := x {
+	Channel =>
+		r := <- y.ch;
+		return r;
+	}
+	cell->error("recv must have a channel argument\n");
+	return nil;
+}
+
 remainder(args: ref Cell): ref Cell
 {
 	numer, denom: big;
@@ -1764,6 +1786,20 @@ schrepenv(args: ref Cell): ref Cell
 	return nil;
 }
 
+lsend(args: ref Cell): ref Cell
+{
+	x := eval(cell->lcar(args));
+	y := cell->lcar(cell->lcdr(args));
+	pick z := y {
+	Channel =>
+		z.ch <- = x;
+		return x;
+	}
+	cell->error("send must have a channel argument\n");
+	return nil;
+}
+	
+
 setcar(args: ref Cell): ref Cell
 {
 	p := cell->lcar(args);
@@ -1817,6 +1853,17 @@ sin(args: ref Cell): ref Cell
 		cell->error("non-numeric argument to sin\n");
 	}
 	return nil;
+}
+
+seval(args: ref Cell)
+{
+	eval(args);
+}
+
+lspawn(args: ref Cell): ref Cell
+{
+	spawn seval(args);
+	return ref Cell.Link(nil);
 }
 
 sqrt(args: ref Cell): ref Cell
