@@ -1,6 +1,6 @@
 SCell: module
 {
-	PATH: con "./cell.dis";
+	PATH: con "/dis/scheme/cell.dis";
 
 	Cell: adt
 	{
@@ -33,6 +33,8 @@ SCell: module
 			env: list of ref Env;
 		Channel =>
 			ch: chan of ref Cell;
+		Promise =>
+			proc, val: cyclic ref Cell;
 		}
 	};
 

@@ -19,20 +19,22 @@ eval: import scheme;
 
 include "sform.m";
 
-#stdout:  ref Iobuf = nil;
-#lsys: Sys;
+stdout:  ref Iobuf = nil;
+lsys: Sys;
 
-init(nil: Sys, sch: Scheme, c: SCell)
+init(sys: Sys, sch: Scheme, c: SCell)
 {
 	cell = c;
 	scheme = sch;
-#bufio = load Bufio Bufio->PATH;
+bufio = load Bufio Bufio->PATH;
 
 	e := cell->envstack;
 	e = ref Env("alt", cell->SpecialForm, nil, lalt) :: e;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
 	e = ref Env("quasiquote", cell->SpecialForm, nil, qquote) :: e;
 	e = ref Env("define", cell->SpecialForm, nil, define) :: e;
+	e = ref Env("delay", cell->SpecialForm, nil, delay) :: e;
+	e = ref Env("force", cell->SpecialForm, nil, force) :: e;
 	e = ref Env("if", cell->SpecialForm, nil, ifsf) :: e;
 	e = ref Env("lambda", cell->SpecialForm, nil, lambda) :: e;
 	e = ref Env("set!", cell->SpecialForm, nil, setbang) :: e;
@@ -55,8 +57,8 @@ init(nil: Sys, sch: Scheme, c: SCell)
 			x.val = ref Cell.Symbol(x.name, x);
 		l = tl l;
 	}
-#lsys = sys;
-#stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
+lsys = sys;
+stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
 }
 
 lalt(args: ref Cell): ref Cell
@@ -307,6 +309,23 @@ define(args: ref Cell): ref Cell
 		}
 	}
 	return ref Cell.Link(nil);
+}
+
+delay(args: ref Cell): ref Cell
+{
+	return ref Cell.Promise(cell->lcar(args), nil);
+}
+
+force(args: ref Cell): ref Cell
+{
+	p := eval(cell->lcar(args));
+	pick x := p {
+	Promise =>
+		if (x.val == nil)
+			x.val = eval(x.proc);
+		return x.val;
+	}
+	return p;
 }
 
 ifsf(args: ref Cell): ref Cell
