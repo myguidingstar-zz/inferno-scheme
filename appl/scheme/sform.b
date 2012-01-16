@@ -19,16 +19,17 @@ eval: import scheme;
 
 include "sform.m";
 
-stdout:  ref Iobuf = nil;
-lsys: Sys;
+#stdout:  ref Iobuf = nil;
+#lsys: Sys;
 
-init(sys: Sys, sch: Scheme, c: SCell)
+init(nil: Sys, sch: Scheme, c: SCell)
 {
 	cell = c;
 	scheme = sch;
-bufio = load Bufio Bufio->PATH;
+#bufio = load Bufio Bufio->PATH;
 
 	e := cell->envstack;
+	e = ref Env("alt", cell->SpecialForm, nil, lalt) :: e;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
 	e = ref Env("quasiquote", cell->SpecialForm, nil, qquote) :: e;
 	e = ref Env("define", cell->SpecialForm, nil, define) :: e;
@@ -54,8 +55,26 @@ bufio = load Bufio Bufio->PATH;
 			x.val = ref Cell.Symbol(x.name, x);
 		l = tl l;
 	}
-lsys = sys;
-stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
+#lsys = sys;
+#stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
+}
+
+lalt(args: ref Cell): ref Cell
+{
+	cl: list of ref Cell;
+
+	x := args;
+	i := 0;
+	cl = nil;
+	while(x != nil && !cell->isnil(x)) {
+		++i;
+		cl = cell->lcar(x) :: cl;
+		x = cell->lcdr(x);
+	}
+	ca := array[i] of chan of ref Cell;
+	(idx, val) := <- ca;
+	ic := ref Cell.Number(big idx, big 1, real idx, cell->Integer|cell->Exact);
+	return cell->lcons(ic, cell->lcons(val, nil));
 }
 
 land(args: ref Cell): ref Cell

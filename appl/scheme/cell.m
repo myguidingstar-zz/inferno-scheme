@@ -1,6 +1,6 @@
 SCell: module
 {
-	PATH: con "/dis/scheme/cell.dis";
+	PATH: con "./cell.dis";
 
 	Cell: adt
 	{
@@ -31,7 +31,8 @@ SCell: module
 			dir: int;
 		Environment =>
 			env: list of ref Env;
-		
+		Channel =>
+			ch: chan of ref Cell;
 		}
 	};
 
