@@ -678,6 +678,10 @@ printcell(x: ref Cell, b: ref Iobuf, disp: int)
 		printvector(y.v, b, disp);
 	Environment =>
 		b.puts("[environment]");
+	Channel =>
+		b.puts("[channel]");
+	Promise =>
+		b.puts("[promise]");
 	}
 	b.flush();
 }
