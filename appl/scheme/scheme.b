@@ -3,7 +3,6 @@
 # Sec 6.4 control features
 # proper tail recursion
 # define-syntax
-# alt and/or spawn
 #
 implement Scheme;
 
@@ -96,7 +95,7 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	}
 }
 
-popen(args: ref Cell): ref Cell
+popen(args: ref Cell): (int, ref Cell)
 {
 	cmd: string;
 	r: ref Cell;
@@ -105,14 +104,14 @@ popen(args: ref Cell): ref Cell
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to popen\n");
-		return nil;
+		return (0, nil);
 	}
 	pick name := x {
 	String =>
 		cmd = name.str;
 	* =>
 		cell->error("non-string argument to popen\n");
-		return nil;
+		return (0, nil);
 	}
 	infds := array[2] of ref Sys->FD;
 	outfds := array[2] of ref Sys->FD;
@@ -125,7 +124,7 @@ popen(args: ref Cell): ref Cell
 	tb := bufio->fopen(outfds[1], Bufio->OWRITE);
 	rc := ref Cell.Port(rb, Bufio->OREAD);
 	tc := ref Cell.Port(tb, Bufio->OWRITE);
-	return cell->lcons(rc, cell->lcons(tc, ref Cell.Link(nil)));
+	return (0, cell->lcons(rc, cell->lcons(tc, ref Cell.Link(nil))));
 }
 
 startshell(cmd: string, infd: ref Sys->FD, outfd: ref Sys->FD)
@@ -404,140 +403,166 @@ bugger: int;
 
 eval(c: ref Cell): ref Cell
 {
-	if(c == nil || cell->isnil(c))
-		return c;
-	pick x := c {
-	Link =>
-		if(x.next == nil)
-			return ref Cell.Link(nil);
-		r := eval(x.next.car);
-		if(r == nil) {
-			cell->error("Undefined operation: ");
-			printcell(x.next.car, stdout, 0);
-			stdout.putc('\n');
-			return nil;
+	z: ref Cell;
+	oenv: list of ref Env;
+
+	tailcont := 0;
+	do {
+		if(c == nil || cell->isnil(c))
+			return c;
+#printcell(c, stdout, 0);
+		oenv = nil;
+		pick c2 := c {
+		Continuation =>
+			oenv = cell->envstack;
+			cell->envstack = c2.env;
+			c = c2.exp;
 		}
-		pick y := r {
-		Symbol =>
-#			if(y.env == nil)
-				e := cell->lookupsym(y.sym);
-#			else
-#				e = y.env;
-			if(e == nil)
+		pick x := c {
+		Link =>
+			if(x.next == nil)
+				return ref Cell.Link(nil);
+			r := eval(x.next.car);
+			if(r == nil) {
+				cell->error("Undefined operation: ");
+				printcell(x.next.car, stdout, 0);
+				stdout.putc('\n');
 				return nil;
-			case e.ilk {
-			cell->BuiltIn =>
-				l := evallist(x.next.cdr);
-				return e.handler(l);
-			cell->SpecialForm =>
-				return e.handler(x.next.cdr);
-			cell->Variable =>
-				return eval(e.val);
 			}
-		Lambda =>
-			saveenv := cell->envstack;
-			l := evallist(x.next.cdr);
-			cell->envstack = cell->listappend(y.env, cell->envstack);
-			p := y.formals;
-			q := l;
-			dorest := 0;
-			while(p != nil && q != nil) {
-				fname := "";
-				pick fp := p {
-				Link =>
-					if(fp.next != nil && fp.next.car != nil) {
-						pick ffp := fp.next.car {
-						Symbol =>
-							fname = ffp.sym;
-						* =>
-							cell->error("non-symbol in formals\n");
-							cell->envstack = saveenv;
-							return nil;
-						}
-						p = fp.next.cdr;
-					}
+			pick y := r {
+			Symbol =>
+	#			if(y.env == nil)
+					e := cell->lookupsym(y.sym);
+	#			else
+	#				e = y.env;
+				if(e == nil)
+					return nil;
+				case e.ilk {
+				cell->BuiltIn =>
+					l := evallist(x.next.cdr);
+					(tailcont, z) = e.handler(l);
+					if (tailcont == 0)
+						return z;
 					else
-						p = nil;
-				Symbol =>
-					fname = fp.sym;
-					dorest = 1;
-					p = nil;
-				* =>
-					p = nil;
+						c = z;
+				cell->SpecialForm =>
+					(tailcont, z) = e.handler(x.next.cdr);
+					if (tailcont == 0)
+						return z;
+					else
+						c = z;
+				cell->Variable =>
+					# return eval(e.val);
+					c = e.val;
+					tailcont = 1;
 				}
-				pick vp := q {
-				Link =>
-					if(vp.next != nil) {
-						if(dorest) {
-							(nil, el) := cell->ldefine(
-								fname, vp, cell->envstack);
-							cell->envstack = el;
-							q = nil;
+			Lambda =>
+				saveenv := cell->envstack;
+				l := evallist(x.next.cdr);
+				cell->envstack = cell->listappend(y.env, cell->envstack);
+				p := y.formals;
+				q := l;
+				dorest := 0;
+				while(p != nil && q != nil) {
+					fname := "";
+					pick fp := p {
+					Link =>
+						if(fp.next != nil && fp.next.car != nil) {
+							pick ffp := fp.next.car {
+							Symbol =>
+								fname = ffp.sym;
+							* =>
+								cell->error("non-symbol in formals\n");
+								cell->envstack = saveenv;
+								return nil;
+							}
+							p = fp.next.cdr;
+						}
+						else
+							p = nil;
+					Symbol =>
+						fname = fp.sym;
+						dorest = 1;
+						p = nil;
+					* =>
+						p = nil;
+					}
+					pick vp := q {
+					Link =>
+						if(vp.next != nil) {
+							if(dorest) {
+								(nil, el) := cell->ldefine(
+									fname, vp, cell->envstack);
+								cell->envstack = el;
+								q = nil;
+							}
+							else {
+								(nil, el) := cell->ldefine(fname,
+									vp.next.car, cell->envstack);
+								cell->envstack = el;
+								q = vp.next.cdr;
+							}
 						}
 						else {
-							(nil, el) := cell->ldefine(fname,
-								vp.next.car, cell->envstack);
-							cell->envstack = el;
-							q = vp.next.cdr;
+							if(dorest) {
+								(nil, el) := cell->ldefine(fname,
+									 ref Cell.Link(nil), cell->envstack);
+								cell->envstack = el;
+							}
+							q = nil;
 						}
-					}
-					else {
-						if(dorest) {
-							(nil, el) := cell->ldefine(fname,
-								 ref Cell.Link(nil), cell->envstack);
-							cell->envstack = el;
-						}
+					* =>
 						q = nil;
 					}
-				* =>
-					q = nil;
 				}
-			}
-			if(p != nil || q != nil) {
-				cell->error("wrong number of arguments\n");
-				cell->envstack = saveenv;
-				return nil;
-			}
-			exp := y.exp_list;
-			r: ref Cell;
-			r = ref Cell.Link(nil);
-			while(exp != nil) {
-				pick ep := exp {
-				Link =>
-					if(ep.next != nil) {
-						r = eval(ep.next.car);
-						if(r == nil) {
-							cell->envstack = saveenv;
-							return nil;
-						}
-						exp = ep.next.cdr;
-					}
-					else
-						exp = nil;
-				* =>
-					cell->error("malformed expression list\n");
+				if(p != nil || q != nil) {
+					cell->error("wrong number of arguments\n");
 					cell->envstack = saveenv;
 					return nil;
 				}
+				exp := y.exp_list;
+				r: ref Cell;
+				r = ref Cell.Link(nil);
+				while(exp != nil) {
+					pick ep := exp {
+					Link =>
+						if(ep.next != nil) {
+							r = eval(ep.next.car);
+							if(r == nil) {
+								cell->envstack = saveenv;
+								return nil;
+							}
+							exp = ep.next.cdr;
+						}
+						else
+							exp = nil;
+					* =>
+						cell->error("malformed expression list\n");
+						cell->envstack = saveenv;
+						return nil;
+					}
+				}
+				cell->envstack = saveenv;
+				return r;
+			* =>
+				cell->error("non-lambda and non-symbol in eval\n");
+				return nil;
 			}
-			cell->envstack = saveenv;
-			return r;
+		Symbol =>
+	#		if(x.env == nil)
+				s := cell->lookupsym(x.sym);
+	#		else
+	#			s = x.env;
+			if(s == nil)
+				return nil;
+			else
+				return s.val;
 		* =>
-			cell->error("non-lambda and non-symbol in eval\n");
-			return nil;
+			return c;
 		}
-	Symbol =>
-#		if(x.env == nil)
-			s := cell->lookupsym(x.sym);
-#		else
-#			s = x.env;
-		if(s == nil)
-			return nil;
-		else
-			return s.val;
-	* =>
-		return c;
-	}
+		if (oenv != nil)
+			cell->envstack = oenv;
+	} while (tailcont != 0) ;
 	return nil;
 }
 
