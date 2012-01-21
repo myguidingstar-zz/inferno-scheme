@@ -110,6 +110,22 @@
 (display "ans: unspecified and outputs \"4 plus 1 equals 5\"\n")
 (write (begin (display "4 plus one equal ") (display (+ 4 1)))) (newline)
 
+(display "\n\ndo:\n")
+(display "ans: #(0 1 2 3 4)   ")
+(write
+  (do ((vec (make-vector 5))
+      (i 0 (+ i 1)))
+    ((= i 5) vec)
+  (vector-set! vec i i))
+) (newline)
+(display "ans: 25   ")
+(write
+  (let ((x '(1 3 5 7 9)))
+    (do ((x x (cdr x))
+      (sum 0 (+ sum (car x))))
+      ((null? x) sum)))
+) (newline)
+
 (display "\n\nnamed let:\n")
 (display "ans: ((6 1 3) (-5 -2))   ")
 (write
@@ -518,3 +534,42 @@
 (write (let ((v (make-vector 5)))
                 (for-each (lambda (i) (vector-set! v i (* i i))) '(0 1 2 3 4)) v))
 (newline)
+
+(display "delay/force\n")
+(display "ans: 3   ")
+(write (force (delay (+ 1 2)))) (newline)
+(display "ans: (3 3)   ")
+(write
+  (let ((p (delay (+ 1 2))))
+    (list (force p) (force p)))
+) (newline)
+(display "ans: 2   ")
+  (define a-stream
+    (letrec ((next
+            (lambda (n)
+              (cons n (delay (next (+ n 1)))))))
+    (next 0)))
+  (define head car)
+  (define tail
+    (lambda (stream) (force (cdr stream))))
+(write
+      (head (tail (tail a-stream)))
+) (newline)
+
+(define count 0)
+(define p
+  (delay (begin (set! count (+ count 1))
+                (if (> count x)
+                    count
+                    (force p)))))
+(define x 5)
+
+(display "ans: [promise]   ")
+(write p) (newline)
+(display "ans: 6   ")
+(write (force p)) (newline)
+(display "ans: [promise]   ")
+(write p) (newline)
+(display "ans: 6   ")
+(write (begin (set! x 100) (force p))) (newline)
+

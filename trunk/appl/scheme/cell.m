@@ -35,6 +35,10 @@ SCell: module
 			ch: chan of ref Cell;
 		Promise =>
 			proc, val: cyclic ref Cell;
+			env: list of ref Env;
+		Continuation =>
+			exp: cyclic ref Cell;
+			env: list of ref Env;
 		}
 	};
 
@@ -55,7 +59,7 @@ SCell: module
 		name: string;
 		ilk: int;
 		val: cyclic ref Cell;
-		handler: ref fn (args: ref Cell): ref Cell;
+		handler: ref fn (args: ref Cell): (int, ref Cell);
 	};
 
 	SpecialForm,

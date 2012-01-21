@@ -49,7 +49,7 @@ ldefine(sym: string, exp: ref Cell, envlist: list of ref Env):
 	(ref Cell, list of ref Env)
 {
 	ilk: int;
-	f: ref fn(args: ref Cell): ref Cell;
+	f: ref fn(args: ref Cell): (int, ref Cell);
 
 	if(exp == nil)
 		return (ref Cell.Link(nil), envlist);
