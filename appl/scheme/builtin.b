@@ -129,7 +129,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("set-car!", cell->BuiltIn, nil, setcar) :: e;
 	e = ref Env("set-cdr!", cell->BuiltIn, nil, setcdr) :: e;
 	e = ref Env("sin", cell->BuiltIn, nil, sin) :: e;
-	e = ref Env("spawn", cell->BuiltIn, nil, lspawn) :: e;
+	e = ref Env("sleep", cell->BuiltIn, nil, lsleep) :: e;
 	e = ref Env("sqrt", cell->BuiltIn, nil, sqrt) :: e;
 	e = ref Env("string?", cell->BuiltIn, nil, stringp) :: e;
 	e = ref Env("string-length", cell->BuiltIn, nil, stringlen) :: e;
@@ -281,8 +281,8 @@ apply(args: ref Cell): (int, ref Cell)
 			oldp = t;
 		}
 	}
-#	return (0, eval(newargs));
-	return (1, newargs);
+	return (0, eval(newargs));
+#	return (1, newargs);
 }
 
 asin(args: ref Cell): (int, ref Cell)
@@ -1856,15 +1856,18 @@ sin(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-seval(args: ref Cell)
+lsleep(args: ref Cell): (int, ref Cell)
 {
-	eval(args);
-}
-
-lspawn(args: ref Cell): (int, ref Cell)
-{
-	spawn seval(args);
-	return (0, ref Cell.Link(nil));
+	x := cell->lcar(args);
+	if (x == nil) {
+		cell->error("wrong number of argument in sleep\n");
+		return (0, nil);
+	}
+	pick y := x {
+	Number =>
+		sys->sleep(int y.i);
+	}
+	return (0, nil);
 }
 
 sqrt(args: ref Cell): (int, ref Cell)

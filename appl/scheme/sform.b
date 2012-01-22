@@ -49,6 +49,7 @@ bufio = load Bufio Bufio->PATH;
 	e = ref Env("let", cell->SpecialForm, nil, let) :: e;
 	e = ref Env("let*", cell->SpecialForm, nil, letstar) :: e;
 	e = ref Env("letrec", cell->SpecialForm, nil, letrec) :: e;
+	e = ref Env("spawn", cell->SpecialForm, nil, lspawn) :: e;
 	cell->envstack = e;
 	l := e;
 	while(l != nil) {
@@ -664,6 +665,18 @@ setbang(args: ref Cell): (int, ref Cell)
 		e.val = eval(cell->lcar(l));
 	}
 	return (0, p);
+}
+
+seval(args: ref Cell)
+{
+	eval(args);
+	exit;
+}
+
+lspawn(args: ref Cell): (int, ref Cell)
+{
+	spawn seval(args);
+	return (0, ref Cell.Link(nil));
 }
 
 unquote(args: ref Cell): (int, ref Cell)
