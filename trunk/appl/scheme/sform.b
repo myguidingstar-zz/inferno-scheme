@@ -669,7 +669,8 @@ setbang(args: ref Cell): (int, ref Cell)
 
 seval(args: ref Cell)
 {
-	eval(args);
+	eval(cell->lcar(args));
+lsys->print("after eval before exit\n");
 	exit;
 }
 
