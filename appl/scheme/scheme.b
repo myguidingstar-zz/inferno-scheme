@@ -516,7 +516,7 @@ eval(c: ref Cell): ref Cell
 					}
 				}
 				if(p != nil || q != nil) {
-					cell->error("wrong number of arguments\n");
+					cell->error("wrong number of arguments for lambda\n");
 					cell->envstack = saveenv;
 					return nil;
 				}
@@ -707,6 +707,8 @@ printcell(x: ref Cell, b: ref Iobuf, disp: int)
 		b.puts("[channel]");
 	Promise =>
 		b.puts("[promise]");
+	Continuation =>
+		b.puts("[continuation]");
 	}
 	b.flush();
 }

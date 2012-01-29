@@ -383,10 +383,23 @@ ceiling(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-lchannel(nil: ref Cell): (int, ref Cell)
+lchannel(args: ref Cell): (int, ref Cell)
 {
-	c := chan of ref Cell;
-	return (0, ref Cell.Channel(c));
+	if(args == nil || cell->isnil(args)) {
+		c := chan of ref Cell;
+		return (0, ref Cell.Channel(c));
+	}	
+	x := cell->lcar(args);
+	if(x == nil || cell->isnil(x)) {
+		c := chan of ref Cell;
+		return (0, ref Cell.Channel(c));
+	}
+	pick y := x {
+	Number =>
+		c := chan [int y.i] of ref Cell;
+		return (0, ref Cell.Channel(c));
+	}
+	return (0, ref Cell.Link(nil));
 }
 
 charp(args: ref Cell): (int, ref Cell)
@@ -1789,7 +1802,12 @@ schrepenv(args: ref Cell): (int, ref Cell)
 
 lsend(args: ref Cell): (int, ref Cell)
 {
-	x := eval(cell->lcar(args));
+	x := cell->lcar(args);
+	cdrarg := cell->lcdr(args);
+	if (cdrarg == nil || cell->isnil(cdrarg)) {
+		cell->error("wrong number of arguments in lsend\n");
+		return (0, nil);
+	}
 	y := cell->lcar(cell->lcdr(args));
 	pick z := y {
 	Channel =>
