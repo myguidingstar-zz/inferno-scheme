@@ -278,6 +278,10 @@ cond(args: ref Cell): (int, ref Cell)
 			return (0, nil);
 		}
 		res := eval(test);
+		if (res == nil || cell->isnil(res)) {
+			cell->error("invalid cond expression\n");
+			return (0, nil);
+		}
 		el := cell->lcdr(cl);
 		pick r := res {
 		Boolean =>
@@ -669,8 +673,11 @@ setbang(args: ref Cell): (int, ref Cell)
 
 seval(args: ref Cell)
 {
+	if (args == nil || cell->isnil(args)) {
+		cell->error("Empty spawn");
+		exit;
+	}
 	eval(cell->lcar(args));
-lsys->print("after eval before exit\n");
 	exit;
 }
 
