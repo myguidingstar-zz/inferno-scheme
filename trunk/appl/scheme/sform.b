@@ -64,20 +64,28 @@ stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
 
 lalt(args: ref Cell): (int, ref Cell)
 {
-	cl: list of ref Cell;
-
 	x := args;
 	i := 0;
-	cl = nil;
 	while(x != nil && !cell->isnil(x)) {
 		++i;
-		cl = cell->lcar(x) :: cl;
 		x = cell->lcdr(x);
 	}
 	ca := array[i] of chan of ref Cell;
+	x = args;
+	i = 0;
+	while(x != nil && !cell->isnil(x)) {
+		y := cell->lcar(x);
+		if (y != nil && !cell->isnil(y)) {
+			pick z := eval(y) {
+			Channel =>
+				ca[i++] = z.ch;
+			}
+		}
+		x = cell->lcdr(x);
+	}
 	(idx, val) := <- ca;
 	ic := ref Cell.Number(big idx, big 1, real idx, cell->Integer|cell->Exact);
-	return (0, cell->lcons(ic, cell->lcons(val, nil)));
+	return (0, cell->lcons(ic, cell->lcons(val, ref Cell.Link(nil))));
 }
 
 land(args: ref Cell): (int, ref Cell)
