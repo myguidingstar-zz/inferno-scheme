@@ -28,7 +28,7 @@ init(sys: Sys, sch: Scheme, c: SCell)
 	scheme = sch;
 bufio = load Bufio Bufio->PATH;
 
-	e := cell->envstack;
+	e := cell->globalenv;
 	e = ref Env("alt", cell->SpecialForm, nil, lalt) :: e;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
 	e = ref Env("quasiquote", cell->SpecialForm, nil, qquote) :: e;
@@ -50,7 +50,7 @@ bufio = load Bufio Bufio->PATH;
 	e = ref Env("let*", cell->SpecialForm, nil, letstar) :: e;
 	e = ref Env("letrec", cell->SpecialForm, nil, letrec) :: e;
 	e = ref Env("spawn", cell->SpecialForm, nil, lspawn) :: e;
-	cell->envstack = e;
+	cell->globalenv = e;
 	l := e;
 	while(l != nil) {
 		x := hd l;
@@ -62,7 +62,7 @@ lsys = sys;
 stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
 }
 
-lalt(args: ref Cell): (int, ref Cell)
+lalt(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := args;
 	i := 0;
@@ -76,7 +76,8 @@ lalt(args: ref Cell): (int, ref Cell)
 	while(x != nil && !cell->isnil(x)) {
 		y := cell->lcar(x);
 		if (y != nil && !cell->isnil(y)) {
-			pick z := eval(y) {
+			(r, nil) := eval(y, env);
+			pick z := r {
 			Channel =>
 				ca[i++] = z.ch;
 			}
@@ -88,17 +89,19 @@ lalt(args: ref Cell): (int, ref Cell)
 	return (0, cell->lcons(ic, cell->lcons(val, ref Cell.Link(nil))));
 }
 
-land(args: ref Cell): (int, ref Cell)
+land(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	c: ref Cell;
+	e: list of ref Env;
 
 	c = ref Cell.Boolean(1);
 	p := cell->lcar(args);
 	if (p == nil || cell->isnil(p))
 		return(0, ref Cell.Boolean(1));
 	l := cell->lcdr(args);
+	e = env;
 	while(l != nil && !(cell->isnil(l))) {
-		c = eval(p);
+		(c, e) = eval(p, e);
 		pick cn := c {
 		Boolean =>
 			if(cn.b == 0)
@@ -109,12 +112,13 @@ land(args: ref Cell): (int, ref Cell)
 		p = cell->lcar(l);
 		l = cell->lcdr(l);
 	}
-	return (1, ref Cell.Continuation(p, cell->envstack));
+	return (1, ref Cell.Continuation(p, e));
 }
 
-begin(args: ref Cell): (int, ref Cell)
+begin(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	c: ref Cell;
+	e: list of ref Env;
 
 	p := cell->lcar(args);
 	if(p == nil) {
@@ -122,91 +126,95 @@ begin(args: ref Cell): (int, ref Cell)
 		return (0, nil);
 	}
 	l := cell->lcdr(args);
+	e = env;
 	while(l != nil && !(cell->isnil(l))) {
-		c = eval(p);
+		(c, e) = eval(p, e);
 		p = cell->lcar(l);
 		l = cell->lcdr(l);
 	}
-	return (1, ref Cell.Continuation(p, cell->envstack));
+	return (1, ref Cell.Continuation(p, e));
 }
 
-lbegin(args: ref Cell): (int, ref Cell)
+lbegin(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	(t, x) := begin(args);
-	if(t)
-		return (0, eval(x));
+	(t, x) := begin(args, env);
+	if(t) {
+		(r, nil) := eval(x, env);
+		return (0, r);
+	}
 	else
 		return (0, x);
 }
 
-ldo(args: ref Cell): (int, ref Cell)
+ldo(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	r: ref Cell;
+	r, tv: ref Cell;
 	t: int;
 
-	oenv := cell->envstack;
 	il := cell->lcar(args);
 	tc := cell->lcdr(args);
 	te := cell->lcar(tc);
 	c := cell->lcdr(tc);
 	ii := il;
-	el := oenv;
+	el := env;
 	while(ii != nil && !cell->isnil(ii)) {
 		ij := cell->lcar(ii);
 		pick x := cell->lcar(ij) {
 		Symbol =>
-			(nil, el) = cell->ldefine(x.sym, eval(cell->lcar(cell->lcdr(ij))), el);
+			(r, el) = eval(cell->lcar(cell->lcdr(ij)), el);
+			(nil, el) = cell->ldefine(x.sym, r, el);
 		}
 		ii = cell->lcdr(ii);
 	}
-	cell->envstack = el;
 bigloop:
 	while(1) {
-		tv := eval(cell->lcar(te));
+		(tv, el) = eval(cell->lcar(te), el);
 		if(tv == nil || cell->isnil(tv)) {
-			(nil, r) = lbegin(cell->lcdr(te));
+			(nil, r) = lbegin(cell->lcdr(te), el);
 			break;
 		}
 		pick y := tv {
 		Boolean =>
 			if (y.b == 1) {
-				(t, r) = begin(cell->lcdr(te));
+				(t, r) = begin(cell->lcdr(te), el);
 				break bigloop;
 			}
 		}
 		if(c != nil && !cell->isnil(c))
-			lbegin(c);
+			lbegin(c, el);
 
 		ii = il;
-		el = oenv;
+		nel := env;
 		while(ii != nil && !cell->isnil(ii)) {
 			ij := cell->lcar(ii);
 			pick x := cell->lcar(ij) {
 			Symbol =>
-				upd := cell->lcar(cell->lcdr(cell->lcdr(ij)));
-				if (upd == nil || cell->isnil(upd))
-					(nil, el) = cell->ldefine(x.sym, eval(upd), cell->envstack);
-				else
-					(nil, el) = cell->ldefine(x.sym, eval(upd), el);
+				updl := cell->lcdr(cell->lcdr(ij));
+				if (updl == nil || cell->isnil(updl)) {
+					(r, nil) = eval(x, el);
+				}
+				else {
+					upd := cell->lcar(updl);
+					(r, nil) = eval(upd, el);
+				}
+				(nil, nel) = cell->ldefine(x.sym, r, nel);
 			}
 			ii = cell->lcdr(ii);
 		}
-		cell->envstack = el;
+		el = nel;
 	}
 	if (t == 0)
 		return (0, r);
 	pick cont := r {
 	Continuation =>
-		res := ref Cell.Continuation(cont.exp, cell->envstack);
-		cell->envstack = oenv;
+		res := ref Cell.Continuation(cont.exp, el);
 		return (1, res);
 	* =>
-		cell->envstack = oenv;
 		return (0, r);
 	}
 }
 
-lcase(args: ref Cell): (int, ref Cell)
+lcase(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -214,7 +222,7 @@ lcase(args: ref Cell): (int, ref Cell)
 		cell->error("wrong number of expressions in case\n");
 		return (0, nil);
 	}
-	key := eval(cell->lcar(args));
+	(key, nil) := eval(cell->lcar(args), env);
 	if(key == nil) {
 		cell->error("key expression missing in case\n");
 		return (0, nil);
@@ -238,13 +246,13 @@ lcase(args: ref Cell): (int, ref Cell)
 		pick elp := data {
 		Symbol =>
 			if(elp.sym == "else")
-				return begin(exprs);
+				return begin(exprs, env);
 		}
 		dl := data;
 		do {
 			datum := cell->lcar(dl);
 			if(cell->leqvp(key, datum) == 1)
-				return begin(exprs);
+				return begin(exprs, env);
 			dl = cell->lcdr(dl);
 		} while(dl != nil && !(cell->isnil(dl)));
 		l = cell->lcdr(l);
@@ -252,7 +260,7 @@ lcase(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-procel(res, el: ref Cell): (int, ref Cell)
+procel(res, el: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	if(el == nil || cell->isnil(el))
 		return (0, res);
@@ -262,16 +270,17 @@ procel(res, el: ref Cell): (int, ref Cell)
 			l := cell->lcdr(el);
 			if(l == nil || cell->isnil(l))
 				return (0, nil);
-			c := eval(cell->lcar(l));
+			(c, nil) := eval(cell->lcar(l), env);
 			qr := cell->lcons(ref Cell.Symbol("quote", nil),
 				cell->lcons(res, ref Cell.Link(nil)));
-			return (0, eval(cell->lcons(c, cell->lcons(qr, ref Cell.Link(nil)))));
+			(r, nil) := eval(cell->lcons(c, cell->lcons(qr, ref Cell.Link(nil))), env);
+			return (0, r);
 		}
 	}
-	return begin(el);
+	return begin(el, env);
 }
 
-cond(args: ref Cell): (int, ref Cell)
+cond(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	cl := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -285,7 +294,7 @@ cond(args: ref Cell): (int, ref Cell)
 			cell->error("invalid test in cond\n");
 			return (0, nil);
 		}
-		res := eval(test);
+		(res, nil) := eval(test, env);
 		if (res == nil || cell->isnil(res)) {
 			cell->error("invalid cond expression\n");
 			return (0, nil);
@@ -294,9 +303,9 @@ cond(args: ref Cell): (int, ref Cell)
 		pick r := res {
 		Boolean =>
 			if(r.b == 1)
-				return procel(res, el);
+				return procel(res, el, env);
 		* =>
-			return procel(res, el);
+			return procel(res, el, env);
 		}
 		if(l == nil || cell->isnil(l))
 			break;
@@ -306,7 +315,7 @@ cond(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-define(args: ref Cell): (int, ref Cell)
+define(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -316,26 +325,28 @@ define(args: ref Cell): (int, ref Cell)
 	}
 	pick y := x {
 	Symbol =>
-		e := cell->lookupsym(y.sym);
+		e := cell->lookupsym(y.sym, env);
 		if(e != nil) {
-			e.val = eval(cell->lcar(l));
+			(e.val, nil) = eval(cell->lcar(l), env);
 			return (0, ref Cell.Symbol(y.sym, e));
 		}
-		(c, el) := cell->ldefine(y.sym, eval(cell->lcar(l)), cell->globalenv);
+		(r, nil) := eval(cell->lcar(l), env);
+		(c, el) := cell->ldefine(y.sym, r, cell->globalenv);
 		cell->globalenv = el;
 		return (0, c);
 	Link =>
 		pick z := cell->lcar(x) {
 		Symbol =>
-			lc := ref Cell.Symbol("lambda", cell->lookupsym("lambda"));
+			lc := ref Cell.Symbol("lambda", cell->lookupsym("lambda", env));
 			fp := ref Cell.Link(ref Pair(cell->lcdr(x), l));
 			lp := ref Cell.Link(ref Pair(lc, fp));
-			e := cell->lookupsym(z.sym);
+			e := cell->lookupsym(z.sym, env);
 			if(e != nil) {
-				e.val = eval(lp);
+				(e.val, nil) = eval(lp, env);
 				return (0, ref Cell.Symbol(z.sym, e));
 			}
-			(c, el) := cell->ldefine(z.sym, eval(lp), cell->globalenv);
+			(r, nil) := eval(lp, env);
+			(c, el) := cell->ldefine(z.sym, r, cell->globalenv);
 			cell->globalenv = el;
 			return (0, c);
 		}
@@ -343,27 +354,24 @@ define(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Link(nil));
 }
 
-delay(args: ref Cell): (int, ref Cell)
+delay(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	return (0, ref Cell.Promise(cell->lcar(args), nil, cell->envstack));
+	return (0, ref Cell.Promise(cell->lcar(args), nil, env));
 }
 
-force(args: ref Cell): (int, ref Cell)
+force(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	p := eval(cell->lcar(args));
+	(p, nil) := eval(cell->lcar(args), env);
 	pick x := p {
 	Promise =>
-		oenv := cell->envstack;
-		cell->envstack = x.env;
 		if (x.val == nil)
-			x.val = eval(x.proc);
-		cell->envstack = oenv;
+			(x.val, nil) = eval(x.proc, x.env);
 		return (0, x.val);
 	}
 	return (0, p);
 }
 
-ifsf(args: ref Cell): (int, ref Cell)
+ifsf(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	e3: ref Cell;
 
@@ -379,16 +387,16 @@ ifsf(args: ref Cell): (int, ref Cell)
 		e3 = ref Cell.Link(nil);
 	else
 		e3 = cell->lcar(l);
-	truth := eval(e1);
+	(truth, nenv) := eval(e1, env);
 	pick x := truth {
 	Boolean =>
 		if(x.b == 0)
-			return (1, ref Cell.Continuation(e3, cell->envstack));
+			return (1, ref Cell.Continuation(e3, nenv));
 	}
-	return (1, ref Cell.Continuation(e2, cell->envstack));
+	return (1, ref Cell.Continuation(e2, nenv));
 }
 
-lambda(args: ref Cell): (int, ref Cell)
+lambda(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	if(args == nil) {
 		cell->error("too few arguments in lambda expressions\n");
@@ -399,15 +407,16 @@ lambda(args: ref Cell): (int, ref Cell)
 		if(x.next == nil || x.next.cdr == nil)
 			return (0, ref Cell.Link(nil));
 		return (0, ref Cell.Lambda(x.next.car,
-			x.next.cdr, cell->envstack));
+			x.next.cdr, env));
 	}
 	cell->error("invalid lambda expression\n");
 	return (0, nil);	
 }
 
-let(args: ref Cell): (int, ref Cell)
+let(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	vals: list of (string, ref Cell);
+	el: list of ref Env;
 
 	if(args == nil || cell->isnil(args)) {
 		cell->error("too few arguments in let\n");
@@ -416,7 +425,7 @@ let(args: ref Cell): (int, ref Cell)
 	binds := cell->lcar(args);
 	exprs := cell->lcdr(args);
 	if(binds == nil || cell->isnil(binds))
-		return begin(exprs);
+		return begin(exprs, env);
 	func_name := "";
 	pick x := binds {
 	Symbol =>
@@ -433,13 +442,13 @@ let(args: ref Cell): (int, ref Cell)
 		exp := cell->lcdr(b);
 		pick var := cell->lcar(b) {
 		Symbol =>
-			(nil, y) := lbegin(exp);
+			(nil, y) := lbegin(exp, env);
 			vals = (var.sym, y) :: vals;
 		}
 		bl = cell->lcdr(bl);
 	} while(bl != nil && !(cell->isnil(bl)));
-	saveenv := cell->envstack;
 	bl = binds;
+	el = env;
 	do {
 		b := cell->lcar(bl);
 		if(b == nil || cell->isnil(b))
@@ -447,8 +456,7 @@ let(args: ref Cell): (int, ref Cell)
 		if(vals == nil)
 			break;
 		(var, val) := hd vals;
-		(nil, el) := cell->ldefine(var, val, cell->envstack);
-		cell->envstack = el;
+		(nil, el) = cell->ldefine(var, val, el);
 		bl = cell->lcdr(bl);
 		vals = tl vals;
 	} while(bl != nil && !(cell->isnil(bl)));
@@ -475,30 +483,28 @@ let(args: ref Cell): (int, ref Cell)
 			bl = cell->lcdr(bl);
 		} while(bl != nil && !(cell->isnil(bl)));
 		lambda_exp := cell->lcons(
-			ref Cell.Symbol("lambda", cell->lookupsym("lambda")),
+			ref Cell.Symbol("lambda", cell->lookupsym("lambda", el)),
 				cell->lcons(formals,
 				cell->lcons(cell->lcar(exprs), ref Cell.Link(nil))));
-		(nil, el) := cell->ldefine(
-			func_name, eval(lambda_exp), cell->envstack);
-		cell->envstack = el;
+		(r, nil) := eval(lambda_exp, el);
+		(nil, el) = cell->ldefine(func_name, r, el);
 	}
-	#res := lbegin(exprs);
-	(t, r) := begin(exprs);
+	(t, r) := begin(exprs, el);
 	if (t == 0)
 		return (0, r);
 	pick c := r {
 	Continuation =>
-		res := ref Cell.Continuation(c.exp, cell->envstack);
-		cell->envstack = saveenv;
+		res := ref Cell.Continuation(c.exp, el);
 		return (1, res);
 	* =>
-		cell->envstack = saveenv;
 		return (0, r);
 	}
 }
 
-letstar(args: ref Cell): (int, ref Cell)
+letstar(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
+	el: list of ref Env;
+
 	if(args == nil || cell->isnil(args)) {
 		cell->error("too few arguments to let*\n");
 		return (0, nil);
@@ -506,9 +512,9 @@ letstar(args: ref Cell): (int, ref Cell)
 	binds := cell->lcar(args);
 	exprs := cell->lcdr(args);
 	if(binds == nil || cell->isnil(binds))
-		return begin(exprs);
-	saveenv := cell->envstack;
+		return begin(exprs, env);
 	bl := binds;
+	el = env;
 	do {
 		b := cell->lcar(bl);
 		if(b == nil || cell->isnil(b))
@@ -516,35 +522,32 @@ letstar(args: ref Cell): (int, ref Cell)
 		pick var := cell->lcar(b) {
 		Symbol =>
 			exp := cell->lcdr(b);
-			(nil, y) := lbegin(exp);
-			(nil, el) := cell->ldefine(var.sym, y, cell->envstack);
-			cell->envstack = el;
+			(nil, y) := lbegin(exp, el);
+			(nil, el) = cell->ldefine(var.sym, y, el);
 		}
 		bl = cell->lcdr(bl);
 	} while(bl != nil && !(cell->isnil(bl)));
-	#res := lbegin(exprs);
-	(t, r) := begin(exprs);
+	(t, r) := begin(exprs, el);
 	if (t == 0)
 		return (0, r);
 	pick c := r {
 	Continuation =>
-		res := ref Cell.Continuation(c.exp, cell->envstack);
-		cell->envstack = saveenv;
+		res := ref Cell.Continuation(c.exp, el);
 		return (1, res);
 	* =>
-		cell->envstack = saveenv;
 		return (0, r);
 	}
 }
 
-letrec(args: ref Cell): (int, ref Cell)
+letrec(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	return letstar(args);
+	return letstar(args, env);
 }
 
-lor(args: ref Cell): (int, ref Cell)
+lor(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	c: ref Cell;
+	e: list of ref Env;
 
 	if(args == nil)
 		return (0, nil);
@@ -554,8 +557,9 @@ lor(args: ref Cell): (int, ref Cell)
 	if (p == nil || cell->isnil(p))
 		return (0, ref Cell.Boolean(0));
 	l := cell->lcdr(args);
+	e = env;
 	while(l != nil && !(cell->isnil(l))) {
-		c = eval(p);
+		(c, e) = eval(p, e);
 		pick cn := c {
 		Boolean =>
 			if(cn.b == 1)
@@ -566,10 +570,10 @@ lor(args: ref Cell): (int, ref Cell)
 		p = cell->lcar(l);
 		l = cell->lcdr(l);
 	}
-	return (1, ref Cell.Continuation(p, cell->envstack));
+	return (1, ref Cell.Continuation(p, e));
 }
 
-lqquote(expr: ref Cell, level: int): (int, ref Cell)
+lqquote(expr: ref Cell, level: int, env: list of ref Env): (int, ref Cell)
 {
 	if(expr == nil || cell->isnil(expr))
 		return (0, expr);
@@ -581,31 +585,31 @@ lqquote(expr: ref Cell, level: int): (int, ref Cell)
 		Symbol =>
 			if(z.sym == "unquote") {
 				if(level == 1) {
-					(nil, q) := unquote(y.next.cdr);
+					(nil, q) := unquote(y.next.cdr, env);
 					return (0, q);
 				}
 				else {
-					(nil, c) := lqquote(y.next.cdr, level - 1);
+					(nil, c) := lqquote(y.next.cdr, level - 1, env);
 					return (0, ref Cell.Link(ref Pair(z, c)));
 				}
 			}
 			if(z.sym == "unquote-splicing") {
 				if(level == 1) {
-					(nil, q) := unquote(y.next.cdr);
+					(nil, q) := unquote(y.next.cdr, env);
 					return (1, q);
 				}
 				else {
-					(nil, c) := lqquote(y.next.cdr, level - 1);
+					(nil, c) := lqquote(y.next.cdr, level - 1, env);
 					return (0, ref Cell.Link(ref Pair(z, c)));
 				}
 			}
 			if(z.sym == "quasiquote") {
-				(nil, c) := lqquote(y.next.cdr, level + 1);
+				(nil, c) := lqquote(y.next.cdr, level + 1, env);
 				return (0, ref Cell.Link(ref Pair(z, c)));
 			}
 		}
-		(n, ca) := lqquote(y.next.car, level);
-		(nil, cd) := lqquote(y.next.cdr, level);
+		(n, ca) := lqquote(y.next.car, level, env);
+		(nil, cd) := lqquote(y.next.cdr, level, env);
 		if(n == 1)
 			return (0, cell->lappend(ca, cd));
 		else
@@ -615,7 +619,7 @@ lqquote(expr: ref Cell, level: int): (int, ref Cell)
 		nl: list of ref Cell;
 		nl = nil;
 		for(i := 0; i < n; ++i) {
-			(qqs, c) := lqquote(y.v[i], level);
+			(qqs, c) := lqquote(y.v[i], level, env);
 			if(qqs == 0) {
 				nl = c :: nl;
 			}
@@ -640,24 +644,24 @@ lqquote(expr: ref Cell, level: int): (int, ref Cell)
 	}
 }
 
-qquote(args: ref Cell): (int, ref Cell)
+qquote(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args)) {
 		cell->error("wrong number of arguments to quasiquote\n");
 		return (0, nil);
 	}
-	(nil, c) := lqquote(cell->lcar(args), 1);
+	(nil, c) := lqquote(cell->lcar(args), 1, env);
 	return (0, c);
 }
 
-quote(args: ref Cell): (int, ref Cell)
+quote(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args))
 		return (0, nil);
 	return (0, cell->lcar(args));
 }
 
-setbang(args: ref Cell): (int, ref Cell)
+setbang(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args))
 		return (0, nil);
@@ -669,50 +673,51 @@ setbang(args: ref Cell): (int, ref Cell)
 		return (0, nil);
 	pick y := p {
 	Symbol =>
-		e := cell->lookupsym(y.sym);
+		e := cell->lookupsym(y.sym, env);
 		if(e == nil) {
 			cell->error("Cannot set unbound variable\n");
 			return (0, nil);
 		}
-		e.val = eval(cell->lcar(l));
+		(e.val, nil) = eval(cell->lcar(l), env);
 	}
 	return (0, p);
 }
 
-seval(args: ref Cell)
+seval(args: ref Cell, env: list of ref Env)
 {
 	if (args == nil || cell->isnil(args)) {
 		cell->error("Empty spawn");
 		exit;
 	}
-	eval(cell->lcar(args));
+	eval(cell->lcar(args), env);
 	exit;
 }
 
-lspawn(args: ref Cell): (int, ref Cell)
+lspawn(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	spawn seval(args);
+	spawn seval(args, env);
 	return (0, ref Cell.Link(nil));
 }
 
-unquote(args: ref Cell): (int, ref Cell)
+unquote(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to unquote\n");
 		return (0, nil);
 	}
-	return (0, eval(x));
+	(r, nil) := eval(x, env);
+	return (0, r);
 }
 
-unquotesplice(args: ref Cell): (int, ref Cell)
+unquotesplice(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to unquote-splicing\n");
 		return (0, nil);
 	}
-	c := eval(x);
+	(c, nil) := eval(x, env);
 	if(c == nil || cell->isnil(c)) {
 		cell->error("invalid expression in unquote-splicing\n");
 		return (0, nil);

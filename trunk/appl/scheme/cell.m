@@ -59,7 +59,7 @@ SCell: module
 		name: string;
 		ilk: int;
 		val: cyclic ref Cell;
-		handler: ref fn (args: ref Cell): (int, ref Cell);
+		handler: ref fn (args: ref Cell, env: list of ref Env): (int, ref Cell);
 	};
 
 	SpecialForm,
@@ -69,7 +69,6 @@ SCell: module
 
 	baseenv: list of ref Env;
 	reportenv, nullenvironment: list of ref Env;
-	envstack: list of ref Env;
 	globalenv: list of ref Env;
 
 	init: fn(s: Sys);
@@ -82,7 +81,7 @@ SCell: module
 	leqvp: fn(x1, x2: ref Cell): int;
 	lappend: fn(c1, c2: ref Cell): ref Cell;
 	isnil: fn(l: ref Cell): int;
-	lookupsym: fn(symbl: string): ref Env;
+	lookupsym: fn(symbl: string, env: list of ref Env): ref Env;
 	listappend: fn(l1, l2: list of ref Env): list of ref Env;
 	error: fn(s: string);
 };

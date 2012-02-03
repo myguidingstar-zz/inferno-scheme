@@ -59,43 +59,46 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 
 	e := ref Env("nil", cell->Variable, ref Cell.Link(nil), nil) :: nil;
 	e = ref Env("else", cell->Variable, ref Cell.Boolean(1), nil) :: nil;
-	cell->envstack = e;
 
+
+	cell->globalenv = e;
 	sform->init(sys, load Scheme SELF, cell);
 
-	cell->nullenvironment = cell->envstack;
+	cell->nullenvironment = e;
 
 	builtin->init(sys, load Scheme SELF, cell, math, str,
 		 bufio, stdin, stdout);
 
+	e = cell->globalenv;
 	b := bufio->open("/lib/scheme/library.scm", Bufio->OREAD);
 	if(b == nil) {
 		cell->error("Can't open library code\n");
 	}
 	else {
 		while(1) {
-			c := readcell(b);
+			c := readcell(b, e);
 			if(c == nil)
 				break;
-			eval(c);
+			eval(c, e);
 		}
 	}
 	b = nil;
-	cell->reportenv = cell->envstack;
-	e = ref Env("popen", cell->BuiltIn, nil, popen) :: cell->globalenv;
+	e = cell->globalenv;
+	cell->reportenv = e;
+	e = ref Env("popen", cell->BuiltIn, nil, popen) :: e;
 	cell->globalenv = e;
 	x := hd cell->globalenv;
 	x.val = ref Cell.Symbol(x.name, x);
 
 	while(1) {
 		sys->print("> ");
-		c := readcell(stdin);
-		r := eval(c);
+		c := readcell(stdin, cell->globalenv);
+		(r, nil) := eval(c, cell->globalenv);
 		printcell(r, stdout, 0); stdout.flush(); sys->print("\n");
 	}
 }
 
-popen(args: ref Cell): (int, ref Cell)
+popen(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	cmd: string;
 	r: ref Cell;
@@ -143,7 +146,7 @@ startshell(cmd: string, infd: ref Sys->FD, outfd: ref Sys->FD)
 	cell->error(sys->sprint("child shell returned: %r\n"));
 }
 
-readcell(b: ref Iobuf): ref Cell
+readcell(b: ref Iobuf, env: list of ref Env): ref Cell
 {
 	c: int;
 
@@ -159,28 +162,28 @@ readcell(b: ref Iobuf): ref Cell
 				c = b.getc();
 			} while(c != Bufio->EOF && c != '\n');
 		'(' =>
-			return readlist(b);
+			return readlist(b, env);
 		'"' =>
 			return readstring(b);
 		'\'' =>
 			return cell->lcons(ref Cell.Symbol("quote",
-				cell->lookupsym("quote")),
-				cell->lcons(readcell(b), ref Cell.Link(nil)));
+				cell->lookupsym("quote", cell->globalenv)),
+				cell->lcons(readcell(b, env), ref Cell.Link(nil)));
 		'`' =>
 			return cell->lcons(ref Cell.Symbol("quasiquote",
-				cell->lookupsym("quasiquote")),
-				cell->lcons(readcell(b), ref Cell.Link(nil)));
+				cell->lookupsym("quasiquote", cell->globalenv)),
+				cell->lcons(readcell(b, env), ref Cell.Link(nil)));
 		',' =>
 			c = b.getc();
 			if(c == '@')
 				return cell->lcons(ref Cell.Symbol("unquote-splicing",
-					cell->lookupsym("unquote-splicing")),
-					cell->lcons(readcell(b), ref Cell.Link(nil)));
+					cell->lookupsym("unquote-splicing", cell->globalenv)),
+					cell->lcons(readcell(b, env), ref Cell.Link(nil)));
 			else {
 				b.ungetc();
 				return cell->lcons(ref Cell.Symbol("unquote",
-					cell->lookupsym("unquote")),
-					cell->lcons(readcell(b), ref Cell.Link(nil)));
+					cell->lookupsym("unquote", cell->globalenv)),
+					cell->lcons(readcell(b, env), ref Cell.Link(nil)));
 			}
 		'+' or '-' or '.' or '0' to '9' =>
 			b.ungetc();
@@ -199,11 +202,11 @@ readcell(b: ref Iobuf): ref Cell
 			'\\' =>
 				return readchar(b);
 			'(' =>
-				return readvector(b);
+				return readvector(b, env);
 			}
 		* =>
 			b.ungetc();
-			return readsymbol(b);
+			return readsymbol(b, env);
 		}
 	}
 	return nil;
@@ -251,13 +254,13 @@ readchar(b: ref Iobuf): ref Cell
 	return nil;
 }
 
-readvector(b: ref Iobuf): ref Cell
+readvector(b: ref Iobuf, env: list of ref Env): ref Cell
 {
 	l: list of ref Cell;
 
 	l = nil;
 	while(1) {
-		c := readcell(b);
+		c := readcell(b, env);
 		if(c == nil)
 			break;
 		l = c :: l;
@@ -270,16 +273,16 @@ readvector(b: ref Iobuf): ref Cell
 	return ref Cell.Vector(v);
 }
 
-readlist(b: ref Iobuf): ref Cell
+readlist(b: ref Iobuf, env: list of ref Env): ref Cell
 {
-	c := readcell(b);
+	c := readcell(b, env);
 	if(c == nil)
 		return ref Cell.Link(nil);
 	pick x := c {
 	Symbol =>
 		if(x.sym == ".") {
-			cdr := readcell(b);
-			if(readcell(b) != nil) {
+			cdr := readcell(b, env);
+			if(readcell(b, env) != nil) {
 				cell->error("malformed improper list\n");
 				return nil;
 			}
@@ -288,7 +291,7 @@ readlist(b: ref Iobuf): ref Cell
 	}
 	p := Pair(nil, nil);
 	p.car = c;
-	p.cdr = readlist(b);
+	p.cdr = readlist(b, env);
 	return ref Cell.Link(ref p);
 }
 
@@ -377,14 +380,14 @@ readnumber(b: ref Iobuf, seed: int): ref Cell
 	if(s[:i] == ".")
 		return ref Cell.Symbol(".", nil);
 	else if(s[:i] == "+")
-		return ref Cell.Symbol("+", cell->lookupsym("+"));
+		return ref Cell.Symbol("+", cell->lookupsym("+", cell->globalenv));
 	else if(s[:i] == "-")
-		return ref Cell.Symbol("-", cell->lookupsym("-"));
+		return ref Cell.Symbol("-", cell->lookupsym("-", cell->globalenv));
 	--i;
 	return scannum(s, 10);
 }
 
-readsymbol(b: ref Iobuf): ref Cell
+readsymbol(b: ref Iobuf, env: list of ref Env): ref Cell
 {
 	x: string;
 
@@ -393,7 +396,7 @@ readsymbol(b: ref Iobuf): ref Cell
 		x[i] = b.getc();
 	} while(!str->in(x[i++], " \t\n()"));
 	b.ungetc();
-	e := cell->lookupsym(x[:i-1]);
+	e := cell->lookupsym(x[:i-1], env);
 	if(e != nil && e.ilk != cell->SpecialForm && e.ilk != cell->BuiltIn)
 		e = nil;
 	return ref Cell.Symbol(x[:i-1], e);
@@ -401,54 +404,54 @@ readsymbol(b: ref Iobuf): ref Cell
 
 bugger: int;
 
-eval(c: ref Cell): ref Cell
+eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 {
 	z: ref Cell;
-	oenv: list of ref Env;
+	r: ref Cell;
+	lenv: list of ref Env;
 
 	tailcont := 0;
+	lenv = env;
 	do {
 		if(c == nil || cell->isnil(c))
-			return c;
+			return (c, env);
 #printcell(c, stdout, 0);
-		oenv = nil;
 		pick c2 := c {
 		Continuation =>
-			oenv = cell->envstack;
-			cell->envstack = c2.env;
+			lenv = c2.env;
 			c = c2.exp;
 		}
 		pick x := c {
 		Link =>
 			if(x.next == nil)
-				return ref Cell.Link(nil);
-			r := eval(x.next.car);
+				return (ref Cell.Link(nil), lenv);
+			(r, lenv) = eval(x.next.car, lenv);
 			if(r == nil) {
 				cell->error("Undefined operation: ");
 				printcell(x.next.car, stdout, 0);
 				stdout.putc('\n');
-				return nil;
+				return (nil, lenv);
 			}
 			pick y := r {
 			Symbol =>
 	#			if(y.env == nil)
-					e := cell->lookupsym(y.sym);
+					e := cell->lookupsym(y.sym, lenv);
 	#			else
 	#				e = y.env;
 				if(e == nil)
-					return nil;
+					return (nil, lenv);
 				case e.ilk {
 				cell->BuiltIn =>
-					l := evallist(x.next.cdr);
-					(tailcont, z) = e.handler(l);
+					l := evallist(x.next.cdr, lenv);
+					(tailcont, z) = e.handler(l, lenv);
 					if (tailcont == 0)
-						return z;
+						return (z, lenv);
 					else
 						c = z;
 				cell->SpecialForm =>
-					(tailcont, z) = e.handler(x.next.cdr);
+					(tailcont, z) = e.handler(x.next.cdr, lenv);
 					if (tailcont == 0)
-						return z;
+						return (z, lenv);
 					else
 						c = z;
 				cell->Variable =>
@@ -457,9 +460,8 @@ eval(c: ref Cell): ref Cell
 					tailcont = 1;
 				}
 			Lambda =>
-				saveenv := cell->envstack;
-				l := evallist(x.next.cdr);
-				cell->envstack = cell->listappend(y.env, cell->envstack);
+				l := evallist(x.next.cdr, lenv);
+				lenv = cell->listappend(y.env, lenv);
 				p := y.formals;
 				q := l;
 				dorest := 0;
@@ -473,8 +475,7 @@ eval(c: ref Cell): ref Cell
 								fname = ffp.sym;
 							* =>
 								cell->error("non-symbol in formals\n");
-								cell->envstack = saveenv;
-								return nil;
+								return (nil, lenv);
 							}
 							p = fp.next.cdr;
 						}
@@ -491,23 +492,18 @@ eval(c: ref Cell): ref Cell
 					Link =>
 						if(vp.next != nil) {
 							if(dorest) {
-								(nil, el) := cell->ldefine(
-									fname, vp, cell->envstack);
-								cell->envstack = el;
+								(nil, lenv) = cell->ldefine(fname, vp, lenv);
 								q = nil;
 							}
 							else {
-								(nil, el) := cell->ldefine(fname,
-									vp.next.car, cell->envstack);
-								cell->envstack = el;
+								(nil, lenv) = cell->ldefine(fname, vp.next.car, lenv);
 								q = vp.next.cdr;
 							}
 						}
 						else {
 							if(dorest) {
-								(nil, el) := cell->ldefine(fname,
-									 ref Cell.Link(nil), cell->envstack);
-								cell->envstack = el;
+								(nil, lenv) = cell->ldefine(fname,
+									 ref Cell.Link(nil), lenv);
 							}
 							q = nil;
 						}
@@ -517,8 +513,7 @@ eval(c: ref Cell): ref Cell
 				}
 				if(p != nil || q != nil) {
 					cell->error("wrong number of arguments for lambda\n");
-					cell->envstack = saveenv;
-					return nil;
+					return (nil, lenv);
 				}
 				exp := y.exp_list;
 				r: ref Cell;
@@ -527,10 +522,9 @@ eval(c: ref Cell): ref Cell
 					pick ep := exp {
 					Link =>
 						if(ep.next != nil) {
-							r = eval(ep.next.car);
+							(r, nil) = eval(ep.next.car, lenv);
 							if(r == nil) {
-								cell->envstack = saveenv;
-								return nil;
+								return (nil, lenv);
 							}
 							exp = ep.next.cdr;
 						}
@@ -538,35 +532,31 @@ eval(c: ref Cell): ref Cell
 							exp = nil;
 					* =>
 						cell->error("malformed expression list\n");
-						cell->envstack = saveenv;
-						return nil;
+						return (nil, lenv);
 					}
 				}
-				cell->envstack = saveenv;
-				return r;
+				return (r, env);
 			* =>
 				cell->error("non-lambda and non-symbol in eval\n");
-				return nil;
+				return (nil, lenv);
 			}
 		Symbol =>
 	#		if(x.env == nil)
-				s := cell->lookupsym(x.sym);
+				s := cell->lookupsym(x.sym, lenv);
 	#		else
 	#			s = x.env;
 			if(s == nil)
-				return nil;
+				return (nil, lenv);
 			else
-				return s.val;
+				return (s.val, lenv);
 		* =>
-			return c;
+			return (c, lenv);
 		}
-		if (oenv != nil)
-			cell->envstack = oenv;
 	} while (tailcont != 0) ;
-	return nil;
+	return (nil, lenv);
 }
 
-evallist(c: ref Cell): ref Cell
+evallist(c: ref Cell, env: list of ref Env): ref Cell
 {
 	if(c == nil || cell->isnil(c))
 		return c;
@@ -574,10 +564,10 @@ evallist(c: ref Cell): ref Cell
 	Link =>
 		if(x.next == nil)
 			return ref Cell.Link(nil);
-		vc := eval(x.next.car);
+		(vc, e) := eval(x.next.car, env);
 		if(vc == nil)
 			return nil;
-		vl := evallist(x.next.cdr);
+		vl := evallist(x.next.cdr, e);
 		if(vl == nil)
 			return nil;
 		y := Pair(vc, vl);
@@ -782,10 +772,10 @@ scannum(s: string, radix: int): ref Cell
 	}
 }
 
-printenv()
+printenv(env: list of ref Env)
 {
 	sys->print("\n***Env: ");
-	for(p := cell->envstack; p != nil; p = tl p) {
+	for(p := env; p != nil; p = tl p) {
 		sys->print("%s:", (hd p).name);
 		printcell((hd p).val, stdout, 0);
 		sys->print(" ");
