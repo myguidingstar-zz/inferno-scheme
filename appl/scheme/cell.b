@@ -49,7 +49,7 @@ ldefine(sym: string, exp: ref Cell, envlist: list of ref Env):
 	(ref Cell, list of ref Env)
 {
 	ilk: int;
-	f: ref fn(args: ref Cell): (int, ref Cell);
+	f: ref fn(args: ref Cell, env: list of ref Env): (int, ref Cell);
 
 	if(exp == nil)
 		return (ref Cell.Link(nil), envlist);
@@ -248,9 +248,9 @@ isnil(l: ref Cell): int
 	return 0;
 }
 
-lookupsym(symbol: string): ref Env
+lookupsym(symbol: string, env: list of ref Env): ref Env
 {
-	for(l := envstack; l != nil; l = tl l) {
+	for(l := env; l != nil; l = tl l) {
 		x := hd l;
 		if(x.name == symbol)
 			return x;

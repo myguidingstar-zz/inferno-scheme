@@ -45,7 +45,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	stdin = in;
 	stdout = out;
 
-	e := ref Env("+", cell->BuiltIn, nil, add) :: cell->envstack;
+	e := ref Env("+", cell->BuiltIn, nil, add) :: cell->globalenv;
 	e = ref Env("*", cell->BuiltIn, nil, mult) :: e;
 	e = ref Env("-", cell->BuiltIn, nil, minus) :: e;
 	e = ref Env("/", cell->BuiltIn, nil, divide) :: e;
@@ -171,10 +171,9 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	}
 	cell->baseenv = e;
 	cell->globalenv = e;
-	cell->envstack = nil;
 }
 
-acos(args: ref Cell): (int, ref Cell)
+acos(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -192,7 +191,7 @@ acos(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Number(big 0, big 1, 0.0, 0));
 }
 
-add(args: ref Cell): (int, ref Cell)
+add(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -203,7 +202,7 @@ add(args: ref Cell): (int, ref Cell)
 	Number =>
 		if(cell->isnil(l))
 			return (0, ref Cell.Number(y.i, y.j, y.r, y.ilk));
-		(nil, r) := add(l);
+		(nil, r) := add(l, env);
 		pick z := r {
 		Number =>
 			if(y.ilk & z.ilk & cell->Exact) {
@@ -240,12 +239,12 @@ add(args: ref Cell): (int, ref Cell)
 makequoted(x: ref Cell): ref Pair
 {
 	p1 := ref Pair(x, ref Cell.Link(nil));
-	p2 := ref Pair(ref Cell.Symbol("quote", cell->lookupsym("quote")),
+	p2 := ref Pair(ref Cell.Symbol("quote", cell->lookupsym("quote", cell->globalenv)),
 		ref Cell.Link(p1));
 	return ref Pair(ref Cell.Link(p2), ref Cell.Link(nil));
 }					
 
-apply(args: ref Cell): (int, ref Cell)
+apply(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args)) {
 		cell->error("wrong number of arguments in apply\n");
@@ -281,11 +280,11 @@ apply(args: ref Cell): (int, ref Cell)
 			oldp = t;
 		}
 	}
-	return (0, eval(newargs));
-#	return (1, newargs);
+	(r, nil) := eval(newargs, env);
+	return (0, r);
 }
 
-asin(args: ref Cell): (int, ref Cell)
+asin(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -303,7 +302,7 @@ asin(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Number(big 0, big 1, 0.0, 0));
 }
 
-atan(args: ref Cell): (int, ref Cell)
+atan(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	n: real;
 
@@ -336,17 +335,17 @@ atan(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-callwcont(nil: ref Cell): (int, ref Cell)
+callwcont(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Link(nil));
 }
 
-callwval(nil: ref Cell): (int, ref Cell)
+callwval(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Link(nil));
 }
 
-car(args: ref Cell): (int, ref Cell)
+car(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	l := cell->lcar(args);
 	if(l == nil) {
@@ -356,7 +355,7 @@ car(args: ref Cell): (int, ref Cell)
 	return (0, cell->lcar(l));
 }
 
-cdr(args: ref Cell): (int, ref Cell)
+cdr(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	l := cell->lcar(args);
 	if(l == nil) {
@@ -366,7 +365,7 @@ cdr(args: ref Cell): (int, ref Cell)
 	return (0, cell->lcdr(l));
 }
 
-ceiling(args: ref Cell): (int, ref Cell)
+ceiling(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -383,7 +382,7 @@ ceiling(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-lchannel(args: ref Cell): (int, ref Cell)
+lchannel(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args)) {
 		c := chan of ref Cell;
@@ -402,7 +401,7 @@ lchannel(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Link(nil));
 }
 
-charp(args: ref Cell): (int, ref Cell)
+charp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -416,7 +415,7 @@ charp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-chareqp(args: ref Cell): (int, ref Cell)
+chareqp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -442,7 +441,7 @@ chareqp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-charltp(args: ref Cell): (int, ref Cell)
+charltp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -468,7 +467,7 @@ charltp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-chargtp(args: ref Cell): (int, ref Cell)
+chargtp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -494,7 +493,7 @@ chargtp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-charlep(args: ref Cell): (int, ref Cell)
+charlep(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -520,7 +519,7 @@ charlep(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-chargep(args: ref Cell): (int, ref Cell)
+chargep(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -546,7 +545,7 @@ chargep(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-char2int(args: ref Cell): (int, ref Cell)
+char2int(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -562,7 +561,7 @@ char2int(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-closeinport(args: ref Cell): (int, ref Cell)
+closeinport(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -579,17 +578,17 @@ closeinport(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-closeinoutport(args: ref Cell): (int, ref Cell)
+closeinoutport(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	return closeinport(args);
+	return closeinport(args, env);
 }
 
-closeoutport(args: ref Cell): (int, ref Cell)
+closeoutport(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	return closeinport(args);
+	return closeinport(args, env);
 }
 
-complexp(args: ref Cell): (int, ref Cell)
+complexp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -604,7 +603,7 @@ complexp(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-cons(args: ref Cell): (int, ref Cell)
+cons(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -615,7 +614,7 @@ cons(args: ref Cell): (int, ref Cell)
 	return (0, cell->lcons(x, cell->lcar(l)));
 }
 
-cos(args: ref Cell): (int, ref Cell)
+cos(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -631,17 +630,17 @@ cos(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-curinport(nil: ref Cell): (int, ref Cell)
+curinport(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Port(stdin, Bufio->OREAD));
 }
 
-curoutport(nil: ref Cell): (int, ref Cell)
+curoutport(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Port(stdout, Bufio->OWRITE));
 }
 
-denominator(args: ref Cell): (int, ref Cell)
+denominator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -660,7 +659,7 @@ denominator(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Exact));
 }
 
-display(args: ref Cell): (int, ref Cell)
+display(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	port := stdout;
 	x := cell->lcar(args);
@@ -681,7 +680,7 @@ display(args: ref Cell): (int, ref Cell)
 	return (0, x);
 }
 
-divide(args: ref Cell): (int, ref Cell)
+divide(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -693,7 +692,7 @@ divide(args: ref Cell): (int, ref Cell)
 	Number =>
 		if(cell->isnil(l))
 			return (0, ref Cell.Number(y.j, y.i, 1.0 / y.r, y.ilk));
-		(nil, r) := mult(l);
+		(nil, r) := mult(l, env);
 		pick z := r {
 		Number =>
 			if(z.ilk & y.ilk & cell->Exact) {
@@ -715,12 +714,12 @@ divide(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-dynwind(nil:ref Cell): (int, ref Cell)
+dynwind(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Link(nil));
 }
 
-eofp(args: ref Cell): (int, ref Cell)
+eofp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -738,7 +737,7 @@ eofp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-eqp(args: ref Cell): (int, ref Cell)
+eqp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x1 := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -750,7 +749,7 @@ eqp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(cell->leqp(x1, x2)));
 }
 
-eqvp(args: ref Cell): (int, ref Cell)
+eqvp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x1 := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -762,7 +761,7 @@ eqvp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(cell->leqvp(x1, x2)));
 }
 
-leval(args: ref Cell): (int, ref Cell)
+leval(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -775,10 +774,7 @@ leval(args: ref Cell): (int, ref Cell)
 	}
 	pick yn := y {
 	Environment =>
-		saveenv := cell->envstack;
-		cell->envstack = yn.env;
-		c := eval(x);
-		cell->envstack = saveenv;
+		(c, nil) := eval(x, yn.env);
 		return (0, c);
 	* =>
 		cell->error("non-environment argument to eval\n");
@@ -787,7 +783,7 @@ leval(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-exactp(args: ref Cell): (int, ref Cell)
+exactp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -805,7 +801,7 @@ exactp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-extoinex(args: ref Cell): (int, ref Cell)
+extoinex(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -820,7 +816,7 @@ extoinex(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Exact));
 }
 
-exp(args: ref Cell): (int, ref Cell)
+exp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -836,7 +832,7 @@ exp(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-expt(args: ref Cell): (int, ref Cell)
+expt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	z2: real;
 	zl: int;
@@ -867,7 +863,7 @@ expt(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-floor(args: ref Cell): (int, ref Cell)
+floor(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -883,7 +879,7 @@ floor(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-inexactp(args: ref Cell): (int, ref Cell)
+inexactp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -901,7 +897,7 @@ inexactp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-inextoex(args: ref Cell): (int, ref Cell)
+inextoex(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -916,7 +912,7 @@ inextoex(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-inportp(args: ref Cell): (int, ref Cell)
+inportp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -934,7 +930,7 @@ inportp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-integerp(args: ref Cell): (int, ref Cell)
+integerp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -956,7 +952,7 @@ integerp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-int2char(args: ref Cell): (int, ref Cell)
+int2char(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -971,12 +967,12 @@ int2char(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-llist(args: ref Cell): (int, ref Cell)
+llist(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, args);
 }
 
-lload(args: ref Cell): (int, ref Cell)
+lload(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -991,10 +987,10 @@ lload(args: ref Cell): (int, ref Cell)
 			return (0, nil);
 		}
 		while(1) {
-			c := readcell(b);
+			c := readcell(b, env);
 			if(c == nil)
 				break;
-			eval(c);
+			eval(c, env);
 		}
 		b = nil;
 		return (0, ref Cell.String(y.str));
@@ -1003,7 +999,7 @@ lload(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-log(args: ref Cell): (int, ref Cell)
+log(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1019,7 +1015,7 @@ log(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-makestring(args: ref Cell): (int, ref Cell)
+makestring(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	c := ' ';
 	x := cell->lcar(args);
@@ -1048,7 +1044,7 @@ makestring(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-makevector(args: ref Cell): (int, ref Cell)
+makevector(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	v: array of ref Cell;
 	k: int;
@@ -1075,7 +1071,7 @@ makevector(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Vector(v));
 }
 
-minus(args: ref Cell): (int, ref Cell)
+minus(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -1086,7 +1082,7 @@ minus(args: ref Cell): (int, ref Cell)
 	Number =>
 		if(cell->isnil(l))
 			return (0, ref Cell.Number(-y.i, y.j, -y.r, y.ilk));
-		(nil, r) := add(l);
+		(nil, r) := add(l, env);
 		pick z := r {
 		Number =>
 			if(z.ilk & y.ilk & cell->Exact) {
@@ -1121,7 +1117,7 @@ minus(args: ref Cell): (int, ref Cell)
 		big 0, big 1, 0.0, cell->Integer|cell->Exact));
 }
 
-modulo(args: ref Cell): (int, ref Cell)
+modulo(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	numer, denom: big;
 
@@ -1155,7 +1151,7 @@ modulo(args: ref Cell): (int, ref Cell)
 		mod, big 1, real mod, cell->Integer|cell->Exact));
 }
 
-mult(args: ref Cell): (int, ref Cell)
+mult(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -1166,7 +1162,7 @@ mult(args: ref Cell): (int, ref Cell)
 	Number =>
 		if(cell->isnil(l))
 			return (0, ref Cell.Number(y.i, y.j, y.r, y.ilk));
-		(nil, r) := mult(l);
+		(nil, r) := mult(l, env);
 		pick z := r {
 		Number =>
 			if(y.ilk & z.ilk & cell->Exact) {
@@ -1193,7 +1189,7 @@ mult(args: ref Cell): (int, ref Cell)
 		big 0, big 1, 0.0, cell->Integer|cell->Exact));
 }
 
-nullenv(args: ref Cell): (int, ref Cell)
+nullenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args))
 		return (0, nil);
@@ -1213,7 +1209,7 @@ nullenv(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-numberp(args: ref Cell): (int, ref Cell)
+numberp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1227,7 +1223,7 @@ numberp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-numequal(args: ref Cell): (int, ref Cell)
+numequal(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	y: ref Cell;
 	x := cell->lcar(args);
@@ -1262,7 +1258,7 @@ numequal(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(1));
 }
 
-numgeq(args: ref Cell): (int, ref Cell)
+numgeq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	y: ref Cell;
 	x := cell->lcar(args);
@@ -1297,7 +1293,7 @@ numgeq(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(1));
 }
 
-numgreater(args: ref Cell): (int, ref Cell)
+numgreater(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	y: ref Cell;
 	x := cell->lcar(args);
@@ -1332,7 +1328,7 @@ numgreater(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(1));
 }
 
-numless(args: ref Cell): (int, ref Cell)
+numless(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	y: ref Cell;
 	x := cell->lcar(args);
@@ -1367,7 +1363,7 @@ numless(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(1));
 }
 
-numleq(args: ref Cell): (int, ref Cell)
+numleq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	y: ref Cell;
 	x := cell->lcar(args);
@@ -1402,7 +1398,7 @@ numleq(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(1));
 }
 
-numtostr(args: ref Cell): (int, ref Cell)
+numtostr(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	radix := 10;
 	x := cell->lcar(args);
@@ -1454,7 +1450,7 @@ numtostr(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-numerator(args: ref Cell): (int, ref Cell)
+numerator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1476,7 +1472,7 @@ numerator(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-openinoutfile(args: ref Cell): (int, ref Cell)
+openinoutfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1497,7 +1493,7 @@ openinoutfile(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-openinfile(args: ref Cell): (int, ref Cell)
+openinfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1518,7 +1514,7 @@ openinfile(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-openoutfile(args: ref Cell): (int, ref Cell)
+openoutfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1539,7 +1535,7 @@ openoutfile(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-outportp(args: ref Cell): (int, ref Cell)
+outportp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1554,7 +1550,7 @@ outportp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-pairp(args: ref Cell): (int, ref Cell)
+pairp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1569,7 +1565,7 @@ pairp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-peekchar(args: ref Cell): (int, ref Cell)
+peekchar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	port: ref Iobuf;
 
@@ -1592,7 +1588,7 @@ peekchar(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Char(c));
 }
 
-procedurep(args: ref Cell): (int, ref Cell)
+procedurep(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1603,14 +1599,14 @@ procedurep(args: ref Cell): (int, ref Cell)
 	Lambda =>
 		return (0, ref Cell.Boolean(1));
 	Symbol =>
-		e := cell->lookupsym(y.sym);
+		e := cell->lookupsym(y.sym, env);
 		if(e.ilk == cell->BuiltIn)
 			return (0, ref Cell.Boolean(1));
 	}
 	return (0, ref Cell.Boolean(0));
 }
 
-quotient(args: ref Cell): (int, ref Cell)
+quotient(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -1639,12 +1635,12 @@ quotient(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-quit(nil: ref Cell): (int, ref Cell)
+quit(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	exit;
 }
 
-rationalp(args: ref Cell): (int, ref Cell)
+rationalp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1662,7 +1658,7 @@ rationalp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-lread(args: ref Cell): (int, ref Cell)
+lread(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	port := stdin;
 	x := cell->lcar(args);
@@ -1677,10 +1673,10 @@ lread(args: ref Cell): (int, ref Cell)
 			}
 		}
 	}
-	return (0, readcell(port));
+	return (0, readcell(port, env));
 }
 
-preadchar(args: ref Cell): (int, ref Cell)
+preadchar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	port := stdin;
 	x := cell->lcar(args);
@@ -1699,7 +1695,7 @@ preadchar(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Char(c));
 }
 
-realp(args: ref Cell): (int, ref Cell)
+realp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1716,7 +1712,7 @@ realp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-lrecv(args: ref Cell): (int, ref Cell)
+lrecv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	pick y := x {
@@ -1728,7 +1724,7 @@ lrecv(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-remainder(args: ref Cell): (int, ref Cell)
+remainder(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	numer, denom: big;
 
@@ -1762,7 +1758,7 @@ remainder(args: ref Cell): (int, ref Cell)
 		mod, big 1, real mod, cell->Integer|cell->Exact));
 }
 
-round(args: ref Cell): (int, ref Cell)
+round(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	math->FPcontrol(math->RND_NR, math->RND_MASK);
 	x := cell->lcar(args);
@@ -1780,7 +1776,7 @@ round(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-schrepenv(args: ref Cell): (int, ref Cell)
+schrepenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	if(args == nil || cell->isnil(args))
 		return (0, nil);
@@ -1800,7 +1796,7 @@ schrepenv(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-lsend(args: ref Cell): (int, ref Cell)
+lsend(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	cdrarg := cell->lcdr(args);
@@ -1819,7 +1815,7 @@ lsend(args: ref Cell): (int, ref Cell)
 }
 	
 
-setcar(args: ref Cell): (int, ref Cell)
+setcar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	p := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -1838,7 +1834,7 @@ setcar(args: ref Cell): (int, ref Cell)
 	return (0, p);
 }
 
-setcdr(args: ref Cell): (int, ref Cell)
+setcdr(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	p := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -1857,7 +1853,7 @@ setcdr(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-sin(args: ref Cell): (int, ref Cell)
+sin(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1874,7 +1870,7 @@ sin(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-lsleep(args: ref Cell): (int, ref Cell)
+lsleep(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if (x == nil) {
@@ -1888,7 +1884,7 @@ lsleep(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-sqrt(args: ref Cell): (int, ref Cell)
+sqrt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1905,7 +1901,7 @@ sqrt(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-stringp(args: ref Cell): (int, ref Cell)
+stringp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1919,7 +1915,7 @@ stringp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-stringlen(args: ref Cell): (int, ref Cell)
+stringlen(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1937,7 +1933,7 @@ stringlen(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-stringref(args: ref Cell): (int, ref Cell)
+stringref(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	i: int;
 
@@ -1964,7 +1960,7 @@ stringref(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-stringset(args: ref Cell): (int, ref Cell)
+stringset(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	i: int;
 	c: int;
@@ -2028,7 +2024,7 @@ getstrargs(args: ref Cell): (int, string, string)
 	return (0, nil, nil);
 }
 
-stringeq(args: ref Cell): (int, ref Cell)
+stringeq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2039,7 +2035,7 @@ stringeq(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringcieq(args: ref Cell): (int, ref Cell)
+stringcieq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2050,7 +2046,7 @@ stringcieq(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringlt(args: ref Cell): (int, ref Cell)
+stringlt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2061,7 +2057,7 @@ stringlt(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringgt(args: ref Cell): (int, ref Cell)
+stringgt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2072,7 +2068,7 @@ stringgt(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringle(args: ref Cell): (int, ref Cell)
+stringle(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2083,7 +2079,7 @@ stringle(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringge(args: ref Cell): (int, ref Cell)
+stringge(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2094,7 +2090,7 @@ stringge(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringcilt(args: ref Cell): (int, ref Cell)
+stringcilt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2105,7 +2101,7 @@ stringcilt(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringcigt(args: ref Cell): (int, ref Cell)
+stringcigt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2116,7 +2112,7 @@ stringcigt(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringcile(args: ref Cell): (int, ref Cell)
+stringcile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2127,7 +2123,7 @@ stringcile(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-stringcige(args: ref Cell): (int, ref Cell)
+stringcige(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	(r, s1, s2) := getstrargs(args);
 	if(!r)
@@ -2138,7 +2134,7 @@ stringcige(args: ref Cell): (int, ref Cell)
 		return (0, ref Cell.Boolean(0));
 }
 
-strtonum(args: ref Cell): (int, ref Cell)
+strtonum(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
@@ -2170,7 +2166,7 @@ strtonum(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-substring(args: ref Cell): (int, ref Cell)
+substring(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	start, end: int;
 
@@ -2206,7 +2202,7 @@ substring(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-stringappend(args: ref Cell): (int, ref Cell)
+stringappend(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	s := "";
 	l := args;
@@ -2226,7 +2222,7 @@ stringappend(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.String(s));
 }
 
-stringcopy(args: ref Cell): (int, ref Cell)
+stringcopy(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2242,7 +2238,7 @@ stringcopy(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-stringfill(args: ref Cell): (int, ref Cell)
+stringfill(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	c: int;
 
@@ -2271,7 +2267,7 @@ stringfill(args: ref Cell): (int, ref Cell)
 	return (0, x);
 }
 
-str2sym(args: ref Cell): (int, ref Cell)
+str2sym(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2287,7 +2283,7 @@ str2sym(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-symbolp(args: ref Cell): (int, ref Cell)
+symbolp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2301,7 +2297,7 @@ symbolp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-sym2str(args: ref Cell): (int, ref Cell)
+sym2str(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2317,7 +2313,7 @@ sym2str(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-tan(args: ref Cell): (int, ref Cell)
+tan(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2334,7 +2330,7 @@ tan(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-truncate(args: ref Cell): (int, ref Cell)
+truncate(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2353,12 +2349,12 @@ truncate(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-values(nil: ref Cell): (int, ref Cell)
+values(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, ref Cell.Link(nil));
 }
 
-vectorp(args: ref Cell): (int, ref Cell)
+vectorp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2372,7 +2368,7 @@ vectorp(args: ref Cell): (int, ref Cell)
 	return (0, ref Cell.Boolean(0));
 }
 
-vectorlen(args: ref Cell): (int, ref Cell)
+vectorlen(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -2390,7 +2386,7 @@ vectorlen(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-vectorref(args: ref Cell): (int, ref Cell)
+vectorref(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	k: int;
 
@@ -2417,7 +2413,7 @@ vectorref(args: ref Cell): (int, ref Cell)
 	return (0, nil);
 }
 
-vectorset(args: ref Cell): (int, ref Cell)
+vectorset(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	k: int;
 
@@ -2446,7 +2442,7 @@ vectorset(args: ref Cell): (int, ref Cell)
 	return (0, z);
 }
 
-lwrite(args: ref Cell): (int, ref Cell)
+lwrite(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	port := stdout;
 	x := cell->lcar(args);
@@ -2471,7 +2467,7 @@ lwrite(args: ref Cell): (int, ref Cell)
 	return (0, x);
 }
 
-writechar(args: ref Cell): (int, ref Cell)
+writechar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	port := stdout;
 	x := cell->lcar(args);
