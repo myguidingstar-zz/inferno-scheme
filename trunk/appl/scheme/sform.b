@@ -55,7 +55,7 @@ bufio = load Bufio Bufio->PATH;
 	while(l != nil) {
 		x := hd l;
 		if(x.ilk == cell->BuiltIn || x.ilk == cell->SpecialForm)
-			x.val = ref Cell.Symbol(x.name, x);
+			x.val = ref Cell.Internal(x.name, x);
 		l = tl l;
 	}
 lsys = sys;
@@ -284,7 +284,8 @@ cond(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	cl := cell->lcar(args);
 	l := cell->lcdr(args);
-	if(cl == nil || cell->isnil(cl) || l == nil || cell->isnil(l)) {
+#	if(cl == nil || cell->isnil(cl) || l == nil || cell->isnil(l)) {
+	if(cl == nil || cell->isnil(cl)) {
 		cell->error("wrong number of arguments in cond\n");
 		return (0, nil);
 	}
@@ -312,7 +313,7 @@ cond(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		cl = cell->lcar(l);
 		l = cell->lcdr(l);
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 define(args: ref Cell, env: list of ref Env): (int, ref Cell)

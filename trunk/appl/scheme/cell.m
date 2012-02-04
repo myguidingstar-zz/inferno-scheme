@@ -10,6 +10,9 @@ SCell: module
 		Symbol =>
 			sym: string;
 			env: ref Env;
+		Internal =>
+			sym: string;
+			env: ref Env;
 		String =>
 			str: string;
 		Char =>

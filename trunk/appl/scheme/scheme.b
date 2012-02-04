@@ -397,8 +397,8 @@ readsymbol(b: ref Iobuf, env: list of ref Env): ref Cell
 	} while(!str->in(x[i++], " \t\n()"));
 	b.ungetc();
 	e := cell->lookupsym(x[:i-1], env);
-	if(e != nil && e.ilk != cell->SpecialForm && e.ilk != cell->BuiltIn)
-		e = nil;
+#	if(e != nil && (e.ilk == cell->SpecialForm || e.ilk == cell->BuiltIn))
+#		return ref Cell.Internal(x[:i-1], e);
 	return ref Cell.Symbol(x[:i-1], e);
 }
 
@@ -433,11 +433,8 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 				return (nil, lenv);
 			}
 			pick y := r {
-			Symbol =>
-	#			if(y.env == nil)
-					e := cell->lookupsym(y.sym, lenv);
-	#			else
-	#				e = y.env;
+			Internal =>
+				e := cell->lookupsym(y.sym, lenv);
 				if(e == nil)
 					return (nil, lenv);
 				case e.ilk {
@@ -454,6 +451,12 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 						return (z, lenv);
 					else
 						c = z;
+				}
+			Symbol =>
+				e := cell->lookupsym(y.sym, lenv);
+				if(e == nil)
+					return (nil, lenv);
+				case e.ilk {
 				cell->Variable =>
 					# return eval(e.val);
 					c = e.val;
@@ -609,6 +612,11 @@ printlist(plist: ref Pair, b: ref Iobuf, disp: int)
 printvector(v: array of ref Cell, b: ref Iobuf, disp: int)
 {
 	b.puts("#(");
+	if(len v == 0) {
+		b.puts(")");
+		b.flush();
+		return;
+	}
 	i := 0;
 	while(1) {
 		printcell(v[i], b, disp);
@@ -634,6 +642,8 @@ printcell(x: ref Cell, b: ref Iobuf, disp: int)
 		else
 			b.puts("#t");
 	Symbol =>
+		b.puts(sys->sprint("%s", y.sym));
+	Internal =>
 		b.puts(sys->sprint("%s", y.sym));
 	String =>
 		if(disp)

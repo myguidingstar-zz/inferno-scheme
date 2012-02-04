@@ -166,7 +166,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	while(l != cell->nullenvironment) {
 		x := hd l;
 		if(x.ilk == cell->BuiltIn || x.ilk == cell->SpecialForm)
-			x.val = ref Cell.Symbol(x.name, x);
+			x.val = ref Cell.Internal(x.name, x);
 		l = tl l;
 	}
 	cell->baseenv = e;
@@ -607,7 +607,8 @@ cons(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	l := cell->lcdr(args);
-	if(x == nil || l == nil || cell->isnil(l)) {
+#	if(x == nil || l == nil || cell->isnil(l)) {
+	if(x == nil || l == nil) {
 		cell->error("wrong number of arguments in cons\n");
 		return (0, nil);
 	}
@@ -1588,7 +1589,7 @@ peekchar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, ref Cell.Char(c));
 }
 
-procedurep(args: ref Cell, env: list of ref Env): (int, ref Cell)
+procedurep(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
@@ -1598,10 +1599,8 @@ procedurep(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	pick y := x {
 	Lambda =>
 		return (0, ref Cell.Boolean(1));
-	Symbol =>
-		e := cell->lookupsym(y.sym, env);
-		if(e.ilk == cell->BuiltIn)
-			return (0, ref Cell.Boolean(1));
+	Internal =>
+		return (0, ref Cell.Boolean(1));
 	}
 	return (0, ref Cell.Boolean(0));
 }
