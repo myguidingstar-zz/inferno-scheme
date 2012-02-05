@@ -79,11 +79,11 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 			c := readcell(b, e);
 			if(c == nil)
 				break;
-			eval(c, e);
+			(nil, e) = eval(c, e);
 		}
 	}
 	b = nil;
-	e = cell->globalenv;
+	cell->globalenv = e;
 	cell->reportenv = e;
 	e = ref Env("popen", cell->BuiltIn, nil, popen) :: e;
 	cell->globalenv = e;
@@ -91,9 +91,11 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	x.val = ref Cell.Symbol(x.name, x);
 
 	while(1) {
+		sform->resetbody();
 		sys->print("> ");
 		c := readcell(stdin, cell->globalenv);
-		(r, nil) := eval(c, cell->globalenv);
+		(r, ge) := eval(c, cell->globalenv);
+		cell->globalenv = ge;
 		printcell(r, stdout, 0); stdout.flush(); sys->print("\n");
 	}
 }
@@ -225,7 +227,7 @@ readchar(b: ref Iobuf): ref Cell
 	lexeme = lexeme[:len lexeme -1];
 	if(len lexeme == 1)
 		return ref Cell.Char(lexeme[0]);
-	case lexeme {
+	case str->tolower(lexeme) {
 	"space" =>
 		return ref Cell.Char(' ');
 	"newline" =>
@@ -441,14 +443,30 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 				cell->BuiltIn =>
 					l := evallist(x.next.cdr, lenv);
 					(tailcont, z) = e.handler(l, lenv);
-					if (tailcont == 0)
-						return (z, lenv);
+					if (tailcont == 0) {
+						if (z == nil || cell->isnil(z))
+							return (z, lenv);
+						pick v := z {
+						Environment =>
+							return (ref Cell.Link(nil), v.env);
+						* =>
+							return (z, lenv);
+						}
+					}
 					else
 						c = z;
 				cell->SpecialForm =>
 					(tailcont, z) = e.handler(x.next.cdr, lenv);
-					if (tailcont == 0)
-						return (z, lenv);
+					if (tailcont == 0) {
+						if (z == nil || cell->isnil(z))
+							return (z, lenv);
+						pick v := z {
+						Environment =>
+							return (ref Cell.Link(nil), v.env);
+						* =>
+							return (z, lenv);
+						}
+					}
 					else
 						c = z;
 				}
@@ -525,7 +543,7 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 					pick ep := exp {
 					Link =>
 						if(ep.next != nil) {
-							(r, nil) = eval(ep.next.car, lenv);
+							(r, lenv) = eval(ep.next.car, lenv);
 							if(r == nil) {
 								return (nil, lenv);
 							}
@@ -720,13 +738,17 @@ scannum(s: string, radix: int): ref Cell
 	exact := cell->Exact;
 	ilk := 0;
 	sign := big 1;
+	l := len s;
 
 	# parse the prefix
 	j := 0;
-	for(k := 0; k < 2; ++k) {
+prefixlp:
+	for(k := 0; j < l && k < 2; ++k) {
 		if(s[j] != '#')
 			break;
 		++j;
+		if (j >= l)
+			break;
 		case s[j] {
 		'b' or 'B' =>
 			radix = 2;
@@ -740,10 +762,19 @@ scannum(s: string, radix: int): ref Cell
 			exact = cell->Exact;
 		'i' or 'I' =>
 			exact = 0;
+		* =>
+			exact = 0;
+			break prefixlp;
 		}
 		++j;
 	}
 
+	for(k = j; k < l; ++k)
+		if (s[k] == '#')
+			s[k] = '0';
+
+	if(j >= l)
+		j = l-1;
 	# Get the initial sign
 	if(s[j] == '+') {
 		sign = big 1;
@@ -766,6 +797,8 @@ scannum(s: string, radix: int): ref Cell
 			ilk = cell->Integer;
 			n2 = big 1;
 		}
+		if (n2 == big 0)
+			return ref Cell.Number(big 0, big 1, real 0, cell->Integer);
 		if(n2 != big 1)
 			(n1, n2) = reduce(n1, n2);
 		return ref Cell.Number(n1, n2, real n1 / real n2, ilk|exact);
@@ -778,6 +811,8 @@ scannum(s: string, radix: int): ref Cell
 			}
 		}
 		n := real s[j:];
+		if(n > real 18446744073709551615)
+			return ref Cell.Number(big 0, big 1, n, cell->Real);
 		return ref Cell.Number(big n, big 1, n, cell->Real);
 	}
 }

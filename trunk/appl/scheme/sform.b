@@ -22,6 +22,8 @@ include "sform.m";
 stdout:  ref Iobuf = nil;
 lsys: Sys;
 
+defkludge: ref Env;
+
 init(sys: Sys, sch: Scheme, c: SCell)
 {
 	cell = c;
@@ -33,6 +35,7 @@ bufio = load Bufio Bufio->PATH;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
 	e = ref Env("quasiquote", cell->SpecialForm, nil, qquote) :: e;
 	e = ref Env("define", cell->SpecialForm, nil, define) :: e;
+	defkludge = hd e;
 	e = ref Env("delay", cell->SpecialForm, nil, delay) :: e;
 	e = ref Env("force", cell->SpecialForm, nil, force) :: e;
 	e = ref Env("if", cell->SpecialForm, nil, ifsf) :: e;
@@ -122,8 +125,9 @@ begin(args: ref Cell, env: list of ref Env): (int, ref Cell)
 
 	p := cell->lcar(args);
 	if(p == nil) {
-		cell->error("wrong number of arguments in begin\n");
-		return (0, nil);
+#		cell->error("wrong number of arguments in begin\n");
+#		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	l := cell->lcdr(args);
 	e = env;
@@ -132,7 +136,9 @@ begin(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		p = cell->lcar(l);
 		l = cell->lcdr(l);
 	}
-	return (1, ref Cell.Continuation(p, e));
+(r, nil) := eval(p, e);
+return (0, r);
+#	return (1, ref Cell.Continuation(p, e));
 }
 
 lbegin(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -176,7 +182,13 @@ bigloop:
 		pick y := tv {
 		Boolean =>
 			if (y.b == 1) {
-				(t, r) = begin(cell->lcdr(te), el);
+				be := cell->lcdr(te);
+				if (be == nil || cell->isnil(be)) {
+					t = 0;
+					r = ref Cell.Link(nil);
+				}
+				else
+					(t, r) = begin(cell->lcdr(te), el);
 				break bigloop;
 			}
 		}
@@ -316,6 +328,38 @@ cond(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	return (0, ref Cell.Link(nil));
 }
 
+innerdef(args: ref Cell, env: list of ref Env): (int, ref Cell)
+{
+	x := cell->lcar(args);
+	l := cell->lcdr(args);
+	if(x == nil || l == nil) {
+		cell->error("wrong number of arguments in define\n");
+		return (0, nil);
+	}
+	pick y := x {
+	Symbol =>
+		(r, e2) := eval(cell->lcar(l), env);
+		(c, el) := cell->ldefine(y.sym, r, e2);
+		return (0, ref Cell.Environment(el));
+	Link =>
+		pick z := cell->lcar(x) {
+		Symbol =>
+			lc := ref Cell.Symbol("lambda", cell->lookupsym("lambda", env));
+			fp := ref Cell.Link(ref Pair(cell->lcdr(x), l));
+			lp := ref Cell.Link(ref Pair(lc, fp));
+			e := cell->lookupsym(z.sym, env);
+			if(e != nil) {
+				(e.val, nil) = eval(lp, env);
+				return (0, ref Cell.Symbol(z.sym, e));
+			}
+			(r, e2) := eval(lp, env);
+			(c, el) := cell->ldefine(z.sym, r, e2);
+			return (0, ref Cell.Environment(el));
+		}
+	}
+	return (0, ref Cell.Link(nil));
+}
+
 define(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
@@ -331,28 +375,18 @@ define(args: ref Cell, env: list of ref Env): (int, ref Cell)
 			(e.val, nil) = eval(cell->lcar(l), env);
 			return (0, ref Cell.Symbol(y.sym, e));
 		}
-		(r, nil) := eval(cell->lcar(l), env);
-		(c, el) := cell->ldefine(y.sym, r, cell->globalenv);
-		cell->globalenv = el;
-		return (0, c);
-	Link =>
-		pick z := cell->lcar(x) {
-		Symbol =>
-			lc := ref Cell.Symbol("lambda", cell->lookupsym("lambda", env));
-			fp := ref Cell.Link(ref Pair(cell->lcdr(x), l));
-			lp := ref Cell.Link(ref Pair(lc, fp));
-			e := cell->lookupsym(z.sym, env);
-			if(e != nil) {
-				(e.val, nil) = eval(lp, env);
-				return (0, ref Cell.Symbol(z.sym, e));
-			}
-			(r, nil) := eval(lp, env);
-			(c, el) := cell->ldefine(z.sym, r, cell->globalenv);
-			cell->globalenv = el;
-			return (0, c);
-		}
 	}
-	return (0, ref Cell.Link(nil));
+	return innerdef(args, env);
+}
+
+startbody()
+{
+	defkludge.handler = innerdef;
+}
+
+resetbody()
+{
+	defkludge.handler = define;
 }
 
 delay(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -363,10 +397,14 @@ delay(args: ref Cell, env: list of ref Env): (int, ref Cell)
 force(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
 	(p, nil) := eval(cell->lcar(args), env);
+	if (p == nil || cell->isnil(p))
+		return (0, nil);
 	pick x := p {
 	Promise =>
-		if (x.val == nil)
-			(x.val, nil) = eval(x.proc, x.env);
+		if (x.val == nil) {
+			lenv := cell->listappend(x.env, env);
+			(x.val, nil) = eval(x.proc, lenv);
+		}
 		return (0, x.val);
 	}
 	return (0, p);
@@ -389,12 +427,24 @@ ifsf(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	else
 		e3 = cell->lcar(l);
 	(truth, nenv) := eval(e1, env);
+	if (truth == nil || cell->isnil(truth))
+		return (0, ref Cell.Link(nil));
 	pick x := truth {
 	Boolean =>
-		if(x.b == 0)
-			return (1, ref Cell.Continuation(e3, nenv));
+		if (x.b == 0) {
+			(r, nil) := eval(e3, nenv);
+			return (0, r);
+		}
 	}
-	return (1, ref Cell.Continuation(e2, nenv));
+	(r, nil) := eval (e2, nenv);
+	return (0, r);
+
+#	pick x := truth {
+#	Boolean =>
+#		if(x.b == 0)
+#			return (1, ref Cell.Continuation(e3, nenv));
+#	}
+#	return (1, ref Cell.Continuation(e2, nenv));
 }
 
 lambda(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -425,8 +475,12 @@ let(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	}
 	binds := cell->lcar(args);
 	exprs := cell->lcdr(args);
-	if(binds == nil || cell->isnil(binds))
-		return begin(exprs, env);
+	if(binds == nil || cell->isnil(binds)) {
+		startbody();
+		r := begin(exprs, env);
+		resetbody();
+		return r;
+	}
 	func_name := "";
 	pick x := binds {
 	Symbol =>
@@ -490,7 +544,9 @@ let(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		(r, nil) := eval(lambda_exp, el);
 		(nil, el) = cell->ldefine(func_name, r, el);
 	}
+	startbody();
 	(t, r) := begin(exprs, el);
+	resetbody();
 	if (t == 0)
 		return (0, r);
 	pick c := r {
@@ -512,8 +568,12 @@ letstar(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	}
 	binds := cell->lcar(args);
 	exprs := cell->lcdr(args);
-	if(binds == nil || cell->isnil(binds))
-		return begin(exprs, env);
+	if(binds == nil || cell->isnil(binds)) {
+		startbody();
+		r := begin(exprs, env);
+		resetbody();
+		return r;
+	}
 	bl := binds;
 	el = env;
 	do {
@@ -528,7 +588,9 @@ letstar(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		}
 		bl = cell->lcdr(bl);
 	} while(bl != nil && !(cell->isnil(bl)));
+	startbody();
 	(t, r) := begin(exprs, el);
+	resetbody();
 	if (t == 0)
 		return (0, r);
 	pick c := r {

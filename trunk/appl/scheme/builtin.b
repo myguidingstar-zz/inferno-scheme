@@ -250,6 +250,7 @@ apply(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		cell->error("wrong number of arguments in apply\n");
 		return (0, nil);
 	}
+#scheme->printenv(env);
 	newargs := ref Cell.Link(ref Pair(cell->lcar(args), ref Cell.Link(nil)));
 	np := cell->lcdr(newargs);
 	oldp := cell->lcdr(args);
@@ -699,6 +700,8 @@ divide(args: ref Cell, env: list of ref Env): (int, ref Cell)
 			if(z.ilk & y.ilk & cell->Exact) {
 				dn := y.i * z.j;
 				dd := y.j * z.i;
+				if (dd == big 0)
+					return (0, ref Cell.Number(big 0, big 1, real 0, cell->Integer));
 				if(dd != big 1)
 					(dn, dd) = reduce(dn, dd);
 				return (0, ref Cell.Number(
@@ -987,14 +990,15 @@ lload(args: ref Cell, env: list of ref Env): (int, ref Cell)
 			cell->error(sys->sprint("can't load%s : %r\n", y.str));
 			return (0, nil);
 		}
+		e := env;
 		while(1) {
-			c := readcell(b, env);
+			c := readcell(b, e);
 			if(c == nil)
 				break;
-			eval(c, env);
+			(nil, e) = eval(c, e);
 		}
 		b = nil;
-		return (0, ref Cell.String(y.str));
+		return (0, ref Cell.Environment(e));
 	}
 	cell->error("non-string argument to load\n");
 	return (0, nil);
@@ -1143,6 +1147,8 @@ modulo(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		cell->error("non-numeric argument to modulo\n");
 		return (0, nil);
 	}
+	if (denom == big 0)
+		return (0, ref Cell.Number(big 0, big 1, real 0, cell->Integer));
 	mod := numer % denom;
 	if(denom > big 0 && mod < big 0)
 		mod += denom;
@@ -2158,6 +2164,8 @@ strtonum(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	}
 	pick xn := x {
 	String =>
+		if(xn.str == "")
+			return (0, ref Cell.Boolean(0));
 		return (0, scannum(xn.str, radix));
 	* =>
 		cell->error("non-string argument to string->number\n");
