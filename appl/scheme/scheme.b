@@ -743,10 +743,14 @@ prefixlp:
 	(s1,s2) := str->splitl(s[j:], ".eEsSfFdDlL");
 	if(s2 == nil) {
 		(s1, s2) = str->splitl(s[j:], "/");
-		(n1, nil) := str->tobig(s1, radix);
+		(n1, rs) := str->tobig(s1, radix);
+		if (rs != nil && (!str->in(rs[0], " \n\r\t\f\v)/") || rs == s1))
+			return ref Cell.Boolean(0);
 		if(s2 != nil) {
 			ilk = cell->Rational;
-			(n2, nil) = str->tobig(s2[1:], radix);
+			(n2, rs) = str->tobig(s2[1:], radix);
+			if (rs != nil && (!str->in(rs[0], " \n\r\t\f\v)/") || rs == s1))
+				return ref Cell.Boolean(0);
 		}
 		else {
 			ilk = cell->Integer;
@@ -765,7 +769,9 @@ prefixlp:
 				s[m] = 'e';
 			}
 		}
-		n := real s[j:];
+		(n, rs) := str->toreal(s[j:], 10);
+		if (rs != nil && (!str->in(rs[0], " \n\r\t\f\v)/") || rs == s1))
+			return ref Cell.Boolean(0);
 		if(n > real 18446744073709551615)
 			return ref Cell.Number(big 0, big 1, n, cell->Real);
 		return ref Cell.Number(big n, big 1, n, cell->Real);
@@ -790,8 +796,15 @@ reduce(n, m: big): (big,big)
 	k := m;
 	while(1) {
 		r := j % k;
-		if(r == big 0)
-			return (n/k, m/k);
+		if(r == big 0) {
+			x := n / k;
+			y := m / k;
+			if (y < big 0) {
+				x = -x;
+				y = -y;
+			}
+			return (x, y);
+		}
 		j = k;
 		k = r;
 	}

@@ -43,7 +43,7 @@
   (lambda l
     (define gcd2
       (lambda (n m)
-         (define r (abs (modulo n m)))
+         (define r (abs (if (= m 0) n (modulo n m))))
          (if (= r 0) m (gcd2 m r))))
     (if (null? l)
         0

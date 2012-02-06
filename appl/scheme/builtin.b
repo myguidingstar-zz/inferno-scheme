@@ -193,8 +193,9 @@ add(args: ref Cell, env: list of ref Env): (int, ref Cell)
 			big 0, big 1, 0.0, cell->Integer|cell->Exact));
 	pick y := x {
 	Number =>
-		if(cell->isnil(l))
+		if(cell->isnil(l)) {
 			return (0, ref Cell.Number(y.i, y.j, y.r, y.ilk));
+		}
 		(nil, r) := add(l, env);
 		pick z := r {
 		Number =>
@@ -661,8 +662,11 @@ divide(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	}
 	pick y := x {
 	Number =>
-		if(cell->isnil(l))
+		if(cell->isnil(l)) {
+			if (y.i < big 0)
+				return (0, ref Cell.Number(-y.j, -y.i, y.r, y.ilk));
 			return (0, ref Cell.Number(y.j, y.i, 1.0 / y.r, y.ilk));
+		}
 		(nil, r) := mult(l, env);
 		pick z := r {
 		Number =>
