@@ -21,8 +21,6 @@ math: Math;
 
 include "draw.m";
 
-include "sh.m";
-
 include "cell.m";
 cell: SCell;
 Cell: import cell;
@@ -34,6 +32,9 @@ sform: SForm;
 
 include "builtin.m";
 builtin: BuiltIn;
+
+include "extension.m";
+extension: Extension;
 
 include "scheme.m";
 
@@ -50,6 +51,7 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	cell = load SCell SCell->PATH;
 	sform = load SForm SForm->PATH;
 	builtin = load BuiltIn BuiltIn->PATH;
+	extension = load Extension Extension->PATH;
 
 	ctxt = drawctxt;
 	stdin = bufio->fopen(sys->fildes(0), Bufio->OREAD);
@@ -84,9 +86,10 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	}
 	b = nil;
 	cell->globalenv = e;
+	extension->init(ctxt, sys, load Scheme SELF, cell, builtin, math, str);
+
+	e = cell->globalenv;
 	cell->reportenv = e;
-	e = ref Env("popen", cell->BuiltIn, nil, popen) :: e;
-	cell->globalenv = e;
 	x := hd cell->globalenv;
 	x.val = ref Cell.Symbol(x.name, x);
 
@@ -98,54 +101,6 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 		cell->globalenv = ge;
 		printcell(r, stdout, 0); stdout.flush(); sys->print("\n");
 	}
-}
-
-popen(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	cmd: string;
-	r: ref Cell;
-
-	r = nil;
-	x := cell->lcar(args);
-	if(x == nil) {
-		cell->error("wrong number of arguments to popen\n");
-		return (0, nil);
-	}
-	pick name := x {
-	String =>
-		cmd = name.str;
-	* =>
-		cell->error("non-string argument to popen\n");
-		return (0, nil);
-	}
-	infds := array[2] of ref Sys->FD;
-	outfds := array[2] of ref Sys->FD;
-	sys->pipe(infds);
-	sys->pipe(outfds);
-	spawn startshell(cmd, outfds[0], infds[1]);
-	outfds[0] = nil;
-	infds[1] = nil;
-	rb := bufio->fopen(infds[0], Bufio->OREAD);
-	tb := bufio->fopen(outfds[1], Bufio->OWRITE);
-	rc := ref Cell.Port(rb, Bufio->OREAD);
-	tc := ref Cell.Port(tb, Bufio->OWRITE);
-	return (0, cell->lcons(rc, cell->lcons(tc, ref Cell.Link(nil))));
-}
-
-startshell(cmd: string, infd: ref Sys->FD, outfd: ref Sys->FD)
-{
-	sh := load Sh Sh->PATH;
-	if(sh == nil) {
-		sys->print("loading sh failed: %r\n");
-		exit;
-	}
-	sys->pctl(Sys->NEWFD, 2 :: infd.fd :: outfd.fd :: nil);
-	sys->dup(infd.fd, 0);
-	sys->dup(outfd.fd, 1);
-	infd = nil;
-	outfd = nil;
-	sh->init(ctxt, "sh" :: "-c" :: cmd :: nil);
-	cell->error(sys->sprint("child shell returned: %r\n"));
 }
 
 readcell(b: ref Iobuf, env: list of ref Env): ref Cell

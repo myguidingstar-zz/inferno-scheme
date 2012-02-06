@@ -54,8 +54,6 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env(">", cell->BuiltIn, nil, numgreater) :: e;
 	e = ref Env("<=", cell->BuiltIn, nil, numleq) :: e;
 	e = ref Env(">=", cell->BuiltIn, nil, numgeq) :: e;
-	e = ref Env("<-=", cell->BuiltIn, nil, lsend) :: e;
-	e = ref Env("=<-", cell->BuiltIn, nil, lrecv) :: e;
 	e = ref Env("acos", cell->BuiltIn, nil, acos) :: e;
 	e = ref Env("apply", cell->BuiltIn, nil, apply) :: e;
 	e = ref Env("asin", cell->BuiltIn, nil, asin) :: e;
@@ -66,7 +64,6 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("car", cell->BuiltIn, nil, car) :: e;
 	e = ref Env("cdr", cell->BuiltIn, nil, cdr) :: e;
 	e = ref Env("ceiling", cell->BuiltIn, nil, ceiling) :: e;
-	e = ref Env("channel", cell->BuiltIn, nil, lchannel) :: e;
 	e = ref Env("char?", cell->BuiltIn, nil, charp) :: e;
 	e = ref Env("char=?", cell->BuiltIn, nil, chareqp) :: e;
 	e = ref Env("char<?", cell->BuiltIn, nil, charltp) :: e;
@@ -74,7 +71,6 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("char<=?", cell->BuiltIn, nil, charlep) :: e;
 	e = ref Env("char>=?", cell->BuiltIn, nil, chargep) :: e;
 	e = ref Env("char->integer", cell->BuiltIn, nil, char2int) :: e;
-	e = ref Env("close-inout-port", cell->BuiltIn, nil, closeinoutport) :: e;
 	e = ref Env("close-input-port", cell->BuiltIn, nil, closeinport) :: e;
 	e = ref Env("close-output-port", cell->BuiltIn, nil, closeoutport) :: e;
 	e = ref Env("complex?", cell->BuiltIn, nil, complexp) :: e;
@@ -109,14 +105,12 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("number?", cell->BuiltIn, nil, numberp) :: e;
 	e = ref Env("number->string", cell->BuiltIn, nil, numtostr) :: e;
 	e = ref Env("numerator", cell->BuiltIn, nil, numerator) :: e;
-	e = ref Env("open-inout-file", cell->BuiltIn, nil, openinoutfile) :: e;
 	e = ref Env("open-input-file", cell->BuiltIn, nil, openinfile) :: e;
 	e = ref Env("open-output-file", cell->BuiltIn, nil, openoutfile) :: e;
 	e = ref Env("output-port?", cell->BuiltIn, nil, outportp) :: e;
 	e = ref Env("pair?", cell->BuiltIn, nil, pairp) :: e;
 	e = ref Env("peek-char", cell->BuiltIn, nil, peekchar) :: e;
 	e = ref Env("procedure?", cell->BuiltIn, nil, procedurep) :: e;
-	e = ref Env("quit", cell->BuiltIn, nil, quit) :: e;
 	e = ref Env("quotient", cell->BuiltIn, nil, quotient) :: e;
 	e = ref Env("rational?", cell->BuiltIn, nil, rationalp) :: e;
 	e = ref Env("read", cell->BuiltIn, nil, lread) :: e;
@@ -129,7 +123,6 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("set-car!", cell->BuiltIn, nil, setcar) :: e;
 	e = ref Env("set-cdr!", cell->BuiltIn, nil, setcdr) :: e;
 	e = ref Env("sin", cell->BuiltIn, nil, sin) :: e;
-	e = ref Env("sleep", cell->BuiltIn, nil, lsleep) :: e;
 	e = ref Env("sqrt", cell->BuiltIn, nil, sqrt) :: e;
 	e = ref Env("string?", cell->BuiltIn, nil, stringp) :: e;
 	e = ref Env("string-length", cell->BuiltIn, nil, stringlen) :: e;
@@ -383,25 +376,6 @@ ceiling(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, nil);
 }
 
-lchannel(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	if(args == nil || cell->isnil(args)) {
-		c := chan of ref Cell;
-		return (0, ref Cell.Channel(c));
-	}	
-	x := cell->lcar(args);
-	if(x == nil || cell->isnil(x)) {
-		c := chan of ref Cell;
-		return (0, ref Cell.Channel(c));
-	}
-	pick y := x {
-	Number =>
-		c := chan [int y.i] of ref Cell;
-		return (0, ref Cell.Channel(c));
-	}
-	return (0, ref Cell.Link(nil));
-}
-
 charp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
@@ -577,11 +551,6 @@ closeinport(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		cell->error("non-port argument to close-*-port\n");
 	}
 	return (0, nil);
-}
-
-closeinoutport(args: ref Cell, env: list of ref Env): (int, ref Cell)
-{
-	return closeinport(args, env);
 }
 
 closeoutport(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -1479,27 +1448,6 @@ numerator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, nil);
 }
 
-openinoutfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	x := cell->lcar(args);
-	if(x == nil) {
-		cell->error("wrong number of arguments to open-input-file\n");
-		return (0, nil);
-	}
-	pick y := x {
-	String =>
-		b := bufio->open(y.str, Bufio->ORDWR);
-		if(b == nil) {
-			cell->error(sys->sprint("Cannot open %s: %r\n", y.str));
-			return (0, nil);
-		}
-		return (0, ref Cell.Port(b, Bufio->ORDWR));
-	* =>
-		cell->error("non-string argument to open-input-file\n");
-	}
-	return (0, nil);
-}
-
 openinfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
@@ -1640,11 +1588,6 @@ quotient(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, nil);
 }
 
-quit(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	exit;
-}
-
 rationalp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
@@ -1715,18 +1658,6 @@ realp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		return (0, nil);
 	}
 	return (0, ref Cell.Boolean(0));
-}
-
-lrecv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	x := cell->lcar(args);
-	pick y := x {
-	Channel =>
-		r := <- y.ch;
-		return (0, r);
-	}
-	cell->error("recv must have a channel argument\n");
-	return (0, nil);
 }
 
 remainder(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1801,25 +1732,6 @@ schrepenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, nil);
 }
 
-lsend(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	x := cell->lcar(args);
-	cdrarg := cell->lcdr(args);
-	if (cdrarg == nil || cell->isnil(cdrarg)) {
-		cell->error("wrong number of arguments in lsend\n");
-		return (0, nil);
-	}
-	y := cell->lcar(cell->lcdr(args));
-	pick z := y {
-	Channel =>
-		z.ch <- = x;
-		return (0, x);
-	}
-	cell->error("send must have a channel argument\n");
-	return (0, nil);
-}
-	
-
 setcar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	p := cell->lcar(args);
@@ -1871,20 +1783,6 @@ sin(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		return (0, ref Cell.Number(big n, big 1, n, 0));
 	* =>
 		cell->error("non-numeric argument to sin\n");
-	}
-	return (0, nil);
-}
-
-lsleep(args: ref Cell, nil: list of ref Env): (int, ref Cell)
-{
-	x := cell->lcar(args);
-	if (x == nil) {
-		cell->error("wrong number of argument in sleep\n");
-		return (0, nil);
-	}
-	pick y := x {
-	Number =>
-		sys->sleep(int y.i);
 	}
 	return (0, nil);
 }

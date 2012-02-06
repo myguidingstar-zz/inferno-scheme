@@ -31,7 +31,6 @@ init(sys: Sys, sch: Scheme, c: SCell)
 bufio = load Bufio Bufio->PATH;
 
 	e := cell->globalenv;
-	e = ref Env("alt", cell->SpecialForm, nil, lalt) :: e;
 	e = ref Env("quote", cell->SpecialForm, nil, quote) :: e;
 	e = ref Env("quasiquote", cell->SpecialForm, nil, qquote) :: e;
 	e = ref Env("define", cell->SpecialForm, nil, define) :: e;
@@ -52,7 +51,6 @@ bufio = load Bufio Bufio->PATH;
 	e = ref Env("let", cell->SpecialForm, nil, let) :: e;
 	e = ref Env("let*", cell->SpecialForm, nil, letstar) :: e;
 	e = ref Env("letrec", cell->SpecialForm, nil, letrec) :: e;
-	e = ref Env("spawn", cell->SpecialForm, nil, lspawn) :: e;
 	cell->globalenv = e;
 	l := e;
 	while(l != nil) {
@@ -63,33 +61,6 @@ bufio = load Bufio Bufio->PATH;
 	}
 lsys = sys;
 stdout = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
-}
-
-lalt(args: ref Cell, env: list of ref Env): (int, ref Cell)
-{
-	x := args;
-	i := 0;
-	while(x != nil && !cell->isnil(x)) {
-		++i;
-		x = cell->lcdr(x);
-	}
-	ca := array[i] of chan of ref Cell;
-	x = args;
-	i = 0;
-	while(x != nil && !cell->isnil(x)) {
-		y := cell->lcar(x);
-		if (y != nil && !cell->isnil(y)) {
-			(r, nil) := eval(y, env);
-			pick z := r {
-			Channel =>
-				ca[i++] = z.ch;
-			}
-		}
-		x = cell->lcdr(x);
-	}
-	(idx, val) := <- ca;
-	ic := ref Cell.Number(big idx, big 1, real idx, cell->Integer|cell->Exact);
-	return (0, cell->lcons(ic, cell->lcons(val, ref Cell.Link(nil))));
 }
 
 land(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -339,7 +310,7 @@ innerdef(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	pick y := x {
 	Symbol =>
 		(r, e2) := eval(cell->lcar(l), env);
-		(c, el) := cell->ldefine(y.sym, r, e2);
+		(nil, el) := cell->ldefine(y.sym, r, e2);
 		return (0, ref Cell.Environment(el));
 	Link =>
 		pick z := cell->lcar(x) {
@@ -353,7 +324,7 @@ innerdef(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				return (0, ref Cell.Symbol(z.sym, e));
 			}
 			(r, e2) := eval(lp, env);
-			(c, el) := cell->ldefine(z.sym, r, e2);
+			(nil, el) := cell->ldefine(z.sym, r, e2);
 			return (0, ref Cell.Environment(el));
 		}
 	}
@@ -746,21 +717,6 @@ setbang(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	return (0, p);
 }
 
-seval(args: ref Cell, env: list of ref Env)
-{
-	if (args == nil || cell->isnil(args)) {
-		cell->error("Empty spawn");
-		exit;
-	}
-	eval(cell->lcar(args), env);
-	exit;
-}
-
-lspawn(args: ref Cell, env: list of ref Env): (int, ref Cell)
-{
-	spawn seval(args, env);
-	return (0, ref Cell.Link(nil));
-}
 
 unquote(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {

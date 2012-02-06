@@ -4,12 +4,14 @@ TARG=\
 	builtin.dis\
 	cell.dis\
 	sform.dis\
+	extension.dis \
 
 MODULES=\
 	builtin.m\
 	cell.m\
 	scheme.m\
 	sform.m\
+	extension.m \
 
 SYSMODULES=\
 	bufio.m\
