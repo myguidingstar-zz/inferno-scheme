@@ -229,7 +229,7 @@
   (lambda (c)
     (if (char=? c #\space) #t
         (if (char=? c #\tab) #t
-            (if (char=? c \#newline) #t
+            (if (char=? c #\newline) #t
                 (if (char=? c #\formfeed) #t
                     (if (char=? c #\return) #t
                         #f) #f) #f) #f) #f)))
