@@ -1,18 +1,76 @@
 ;;;
+;;; Vector Operations
+;;;
+(define vector->list
+  (lambda (v)
+    (define vliter
+      (lambda (v k n)
+        (if (= k n)
+            '()
+            (cons (vector-ref v k) (vliter v (+ k 1) n)))))
+    (vliter v 0 (vector-length v))))
+(define list->vector
+  (lambda (l)
+    (define dolv
+      (lambda (v k l)
+        (vector-set! v k (car l))
+        (lviter v (+ k 1) (cdr l))))
+    (define lviter
+      (lambda (v k l)
+        (if (null? l)
+            v
+            (dolv v k l))))
+    (lviter (make-vector (length l)) 0 l)))
+(define vector (lambda l (list->vector l)))
+(define vector-fill!
+  (lambda (v f)
+    (define n (vector-length v))
+    (define vfiter
+      (lambda (v f k)
+        (if (= k 0)
+            (vector-set! v 0 f)
+            ((lambda (v f k)
+              (vector-set! v k f)
+              (vfiter v f (- k 1))) v f k))))
+    (vfiter v f (- n 1))))
+
+;;;
 ;;; Equivalence operations
 ;;;
+;(define equal?
+;  (lambda (x y)
+;    (define listeq
+;      (lambda (x y)
+;        (if (null? x)
+;            (if (null? y) #t #f)
+;            (if (equal? (car x) (car y)) (equal? (cdr x) (cdr y)) #f))))
+;    (if (not (pair? x))
+;        (if (not (pair? y)) (eqv? x y) #f)
+;        (if (not (pair? y))
+;            #f
+;            (listeq x y)))))
+
 (define equal?
   (lambda (x y)
     (define listeq
       (lambda (x y)
-        (if (null? x)
-            (if (null? y) #t #f)
-            (if (equal? (car x) (car y)) (equal? (cdr x) (cdr y)) #f))))
-    (if (not (pair? x))
-        (if (not (pair? y)) (eqv? x y) #f)
-        (if (not (pair? y))
-            #f
-            (listeq x y)))))
+        (cond
+          ((and (null? x) (null? y)) #t)
+          ((or (null? x) (null? y)) #f)
+          ((equal? (car x) (car y)) (equal? (cdr x) (cdr y)))
+          (#t #f)
+        )
+      )
+    )
+    (cond
+      ((and (pair? x) (pair? y)) (listeq x y))
+      ((and (vector? x) (vector? y)) (listeq (vector->list x) (vector->list y)))
+      ((or (pair? x) (pair? y)) #f)
+      ((or (vector? x) (vector? y)) #f)
+      (#t (eqv? x y))
+    )
+  )
+)
 
 ;;;
 ;;; Boolean operations
@@ -270,42 +328,6 @@
       (lambda (k n s)
         (if (= k n) '() (cons (string-ref s k) (unpack-string (+ k 1) n s)))))
     (unpack-string 0 (string-length s) s)))
-
-;;;
-;;; Vector Operations
-;;;
-(define vector->list
-  (lambda (v)
-    (define vliter
-      (lambda (v k n)
-        (if (= k n)
-            '()
-            (cons (vector-ref v k) (vliter v (+ k 1) n)))))
-    (vliter v 0 (vector-length v))))
-(define list->vector
-  (lambda (l)
-    (define dolv
-      (lambda (v k l)
-        (vector-set! v k (car l))
-        (lviter v (+ k 1) (cdr l))))
-    (define lviter
-      (lambda (v k l)
-        (if (null? l)
-            v
-            (dolv v k l))))
-    (lviter (make-vector (length l)) 0 l)))
-(define vector (lambda l (list->vector l)))
-(define vector-fill!
-  (lambda (v f)
-    (define n (vector-length v))
-    (define vfiter
-      (lambda (v f k)
-        (if (= k 0)
-            (vector-set! v 0 f)
-            ((lambda (v f k)
-              (vector-set! v k f)
-              (vfiter v f (- k 1))) v f k))))
-    (vfiter v f (- n 1))))
 
 ;;;
 ;;; Control features
