@@ -127,8 +127,7 @@ leqp(x1, x2: ref Cell): int
 	Lambda =>
 		pick y2 := x2 {
 		Lambda =>
-			if(y1.formals == y2.formals
-					&& y1.exp_list == y2.exp_list)
+			if(y1 == y2)
 				return 1;
 		}
 	Vector =>
@@ -147,6 +146,14 @@ leqp(x1, x2: ref Cell): int
 			if(y1.p == y2.p && y1.dir == y2.dir)
 				return 1;
 		}
+	Internal =>
+		pick y2 := x2 {
+		Internal =>
+			if(y1.env == y2.env)
+				return 1;
+		}
+	* =>
+		sys->print("eq? of unrecognized type\n");
 	}
 	return 0;
 }
@@ -205,8 +212,7 @@ leqvp(x1, x2: ref Cell): int
 	Lambda =>
 		pick y2 := x2 {
 		Lambda =>
-			if(y1.formals == y2.formals
-					&& y1.exp_list == y2.exp_list)
+			if(y1 == y2)
 				return 1;
 		}
 	Vector =>
@@ -223,6 +229,12 @@ leqvp(x1, x2: ref Cell): int
 		pick y2 := x2 {
 		Port =>
 			if(y1.p == y2.p && y1.dir == y2.dir)
+				return 1;
+		}
+	Internal =>
+		pick y2 := x2 {
+		Internal =>
+			if(y1.env == y2.env)
 				return 1;
 		}
 	}
