@@ -494,6 +494,7 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 				exp := y.exp_list;
 				r: ref Cell;
 				r = ref Cell.Link(nil);
+				sform->startbody();
 				while(exp != nil) {
 					pick ep := exp {
 					Link =>
@@ -508,9 +509,11 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 							exp = nil;
 					* =>
 						cell->error("malformed expression list\n");
+						sform->resetbody();
 						return (nil, lenv);
 					}
 				}
+				sform->resetbody();
 				return (r, env);
 			* =>
 				cell->error("non-lambda and non-symbol in eval\n");
