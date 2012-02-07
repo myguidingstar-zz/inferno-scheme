@@ -71,11 +71,13 @@ land(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	c = ref Cell.Boolean(1);
 	p := cell->lcar(args);
 	if (p == nil || cell->isnil(p))
-		return(0, ref Cell.Boolean(1));
+		return (0, ref Cell.Boolean(1));
 	l := cell->lcdr(args);
 	e = env;
 	while(l != nil && !(cell->isnil(l))) {
 		(c, e) = eval(p, e);
+		if (c == nil)
+			return (0, ref Cell.Boolean(0));
 		pick cn := c {
 		Boolean =>
 			if(cn.b == 0)
@@ -594,6 +596,8 @@ lor(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	e = env;
 	while(l != nil && !(cell->isnil(l))) {
 		(c, e) = eval(p, e);
+		if (c == nil)
+			continue;
 		pick cn := c {
 		Boolean =>
 			if(cn.b == 1)
