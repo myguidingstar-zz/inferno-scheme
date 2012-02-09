@@ -85,13 +85,11 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 		}
 	}
 	b = nil;
+	cell->reportenv = e;
 	cell->globalenv = e;
-	extension->init(ctxt, sys, load Scheme SELF, cell, builtin, math, str);
+	extension->init(ctxt, sys, load Scheme SELF, cell, builtin, math, str, bufio);
 
 	e = cell->globalenv;
-	cell->reportenv = e;
-	x := hd cell->globalenv;
-	x.val = ref Cell.Symbol(x.name, x);
 
 	while(1) {
 		sform->resetbody();

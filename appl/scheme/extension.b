@@ -36,7 +36,8 @@ ctxt: ref Draw->Context;
 
 include "extension.m";
 
-init(drawctxt: ref Draw->Context, s: Sys, sch: Scheme, c: SCell, b: BuiltIn, m: Math, st: String)
+init(drawctxt: ref Draw->Context, s: Sys, sch: Scheme, c: SCell,
+	b: BuiltIn, m: Math, st: String, bi: Bufio)
 {
 	ctxt = drawctxt;
 	sys = s;
@@ -45,6 +46,7 @@ init(drawctxt: ref Draw->Context, s: Sys, sch: Scheme, c: SCell, b: BuiltIn, m: 
 	builtin = b;
 	math = m;
 	str = st;
+	bufio = bi;
 
 	e := cell->globalenv;
 	e = ref Env("<-=", cell->BuiltIn, nil, lsend) :: e;

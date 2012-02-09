@@ -98,8 +98,6 @@ begin(args: ref Cell, env: list of ref Env): (int, ref Cell)
 
 	p := cell->lcar(args);
 	if(p == nil) {
-#		cell->error("wrong number of arguments in begin\n");
-#		return (0, nil);
 		return (0, ref Cell.Link(nil));
 	}
 	l := cell->lcdr(args);
