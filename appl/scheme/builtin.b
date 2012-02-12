@@ -1621,11 +1621,14 @@ lread(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				port = y.p;
 			else {
 				cell->error("non-open port in read\n");
-				return (0, nil);
+				return (0, ref Cell.Link(nil));
 			}
 		}
 	}
-	return (0, readcell(port, env));
+	r := readcell(port, env);
+	if (r == nil)
+		return (0, ref Cell.String(""));
+	return (0, r);
 }
 
 preadchar(args: ref Cell, nil: list of ref Env): (int, ref Cell)
