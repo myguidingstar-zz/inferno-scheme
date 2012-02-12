@@ -166,22 +166,37 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	cell->globalenv = e;
 }
 
+newilk(ilk1: int, ilk2: int): (int, int)
+{
+	zt := ilk1 & ~cell->Exact;
+	yt := ilk2 & ~cell->Exact;
+	if(zt == cell->Complex || yt == cell->Complex)
+		t := cell->Complex;
+	else if(zt == cell->Real || yt == cell->Real)
+		t = cell->Real;
+	else if(zt == cell->Rational || yt == cell->Rational)
+		t = cell->Rational;
+	else
+		t = cell->Integer;
+	return (t, ilk1 & ilk2 & cell->Exact);
+}
+
 acos(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in acos\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->acos(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	* =>
 		cell->error("non-numeric argument to acos\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	return (0, ref Cell.Number(big 0, big 1, 0.0, 0));
+	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Integer | cell->Exact));
 }
 
 add(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -199,7 +214,12 @@ add(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		(nil, r) := add(l, env);
 		pick z := r {
 		Number =>
-			if(y.ilk & z.ilk & cell->Exact) {
+			(t, e) := newilk(z.ilk, y.ilk);
+			if(t == cell->Real) {
+				s := y.r + z.r;
+				return (0, ref Cell.Number(big s, big 1, s, t | e));
+			}
+			else {
 				sn, sd: big;
 				if(y.j == z.j) {
 					sn = y.i + z.i;
@@ -211,21 +231,19 @@ add(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				}
 				if(sd != big 1)
 					(sn, sd) = reduce(sn, sd);
-				return (0, ref Cell.Number(
-					sn, sd, real sn / real sd, cell->Exact));
-			}
-			else {
-				s := y.r + z.r;
-				return (0, ref Cell.Number(
-					big s, big 1, s, 0));
+				if(sd == big 1)
+					t = cell->Integer;
+				else
+					t = cell->Rational;
+				return (0, ref Cell.Number(sn, sd, real sn / real sd, t | e));
 			}
 		* =>
 			cell->error("non-numeric argument to +\n");
-			return (0, nil);
+			return (0, ref Cell.Link(nil));
 		}
 	* =>
 		cell->error("non-numeric argument to +\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Integer|cell->Exact));
 }
@@ -284,17 +302,17 @@ asin(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in asin\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->asin(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	* =>
 		cell->error("non-numeric argument to asin\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	return (0, ref Cell.Number(big 0, big 1, 0.0, 0));
+	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Integer | cell->Exact));
 }
 
 atan(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -304,30 +322,30 @@ atan(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in atan\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n = y.r;
 	* =>
 		cell->error("non-numeric argument to atan\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	l := cell->lcdr(args);
 	if(l == nil || cell->isnil(l)) {
 		m := math->atan(n);
-		return (0, ref Cell.Number(big m, big 1, m, 0));
+		return (0, ref Cell.Number(big m, big 1, m, cell->Real));
 	}
 	z := cell->lcar(l);
 	pick zn := z {
 	Number =>
 		m := math->atan2(n, zn.r);
-		return (0, ref Cell.Number(big m, big 1, m, 0));
+		return (0, ref Cell.Number(big m, big 1, m, cell->Real));
 	* =>
 		cell->error("non-numeric argument to atan\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 callwcont(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -365,16 +383,16 @@ ceiling(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in ceiling\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->ceil(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, cell->Exact));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Integer | (y.ilk & cell->Exact)));
 	* =>
 		cell->error("non-numeric argument to ceiling\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 charp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -591,15 +609,15 @@ cos(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in cos\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->cos(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	}
 	cell->error("non-numeric argument to cos\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 curinport(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -617,18 +635,15 @@ denominator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in denominator\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
-		if(y.ilk & cell->Exact) {
-			return (0, ref Cell.Number(y.j, big 1, real y.j, cell->Exact));
-		}
+		return (0, ref Cell.Number(y.j, big 1, real y.j, cell->Integer | (y.ilk & cell->Exact)));
 	* =>
 		cell->error("non-numeric argument to denominator\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Exact));
 }
 
 display(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -658,37 +673,51 @@ divide(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	l := cell->lcdr(args);
 	if(x == nil || l == nil) {
 		cell->error("wrong number of arguments in /\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		if(cell->isnil(l)) {
-			if (y.i < big 0)
-				return (0, ref Cell.Number(-y.j, -y.i, y.r, y.ilk));
-			return (0, ref Cell.Number(y.j, y.i, 1.0 / y.r, y.ilk));
+			yn := y.i;
+			yd := y.j;
+			if (y.i < big 0) {
+				yn = -yn;
+				yd = -yd;
+			}
+			t := cell->Rational;
+			if((y.ilk & ~cell->Exact) == cell->Real)
+				t = cell->Real;
+			else if(yn == big 1)
+				t = cell->Integer;
+			return (0, ref Cell.Number(yd, yn, 1.0 / y.r, t | (y.ilk & cell->Exact)));
 		}
 		(nil, r) := mult(l, env);
 		pick z := r {
 		Number =>
-			if(z.ilk & y.ilk & cell->Exact) {
+			(t, e) := newilk(z.ilk, y.ilk);
+			if(t == cell->Real) {
+				quot := y.r / z.r;
+				return (0, ref Cell.Number(
+					big quot, big 1, quot, cell->Real | e));
+			}
+			else {
 				dn := y.i * z.j;
 				dd := y.j * z.i;
 				if (dd == big 0)
-					return (0, ref Cell.Number(big 0, big 1, real 0, cell->Integer));
+					return (0, ref Cell.Number(big 0, big 1, real 0,
+						cell->Integer | cell->Exact));
 				if(dd != big 1)
 					(dn, dd) = reduce(dn, dd);
-				return (0, ref Cell.Number(
-					dn, dd, real dn / real dd, cell->Exact));
-			}
-			else {
-				quot := y.r / z.r;
-				return (0, ref Cell.Number(
-					big quot, big 1, quot, cell->Real));
+				if(dd == big 1)
+					t = cell->Integer;
+				else
+					t = cell->Rational;
+				return (0, ref Cell.Number(dn, dd, real dn / real dd, t | e));
 			}
 		}
 	}
 	cell->error("non-numeric argument to /\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 dynwind(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -787,7 +816,7 @@ extoinex(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	}
 	pick y := x {
 	Number =>
-		return (0, ref Cell.Number(y.i, y.j, y.r, 0));
+		return (0, ref Cell.Number(y.i, y.j, y.r, y.ilk & ~cell->Exact));
 	}
 	cell->error("non-numeric argument to exact->inexact\n");
 	return (0, ref Cell.Number(big 0, big 1, 0.0, cell->Exact));
@@ -798,15 +827,15 @@ exp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in exp\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->exp(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	}
 	cell->error("non-numeric argument to exp\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 expt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -819,7 +848,7 @@ expt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	y := cell->lcar(l);
 	if(x == nil || y == nil || l == nil || cell->isnil(l)) {
 		cell->error("wrong number of arguments to expt\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick yn := y {
 	Number =>
@@ -827,17 +856,22 @@ expt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		zl = yn.ilk;
 	* =>
 		cell->error("non-numeric argument to expt\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick xn := x {
 	Number =>
 		n := math->pow(xn.r, z2);
-		return (0, ref Cell.Number(big n, big 1, n, xn.ilk & zl));
+		if((zl & ~cell->Exact) == cell->Integer && (xn.ilk & ~cell->Exact) == cell->Integer)
+			t := cell->Integer;
+		else
+			t = cell->Real;
+		t |= zl & xn.ilk & cell->Exact;
+		return (0, ref Cell.Number(big n, big 1, n, t));
 	* =>
 		cell->error("non-numeric argument to expt\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 floor(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -845,15 +879,15 @@ floor(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in floor\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->floor(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, cell->Exact));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Integer | (y.ilk & cell->Exact)));
 	}
 	cell->error("non-numeric argument to floor\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 inexactp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -861,7 +895,7 @@ inexactp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in inexact?\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
@@ -869,7 +903,7 @@ inexactp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			return (0, ref Cell.Boolean(1));
 	* =>
 		cell->error("non-numeric argument to inexact?\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	return (0, ref Cell.Boolean(0));
 }
@@ -879,14 +913,14 @@ inextoex(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in inexact->exact\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
-		return (0, ref Cell.Number(y.i, y.j, y.r, cell->Exact));
+		return (0, ref Cell.Number(y.i, y.j, y.r, y.ilk | cell->Exact));
 	}
 	cell->error("non-numeric argument to inexact->exact\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 inportp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -982,15 +1016,15 @@ log(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in log\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->log(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	}
 	cell->error("non-numeric argument to log\n");
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 makestring(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1063,7 +1097,12 @@ minus(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		(nil, r) := add(l, env);
 		pick z := r {
 		Number =>
-			if(z.ilk & y.ilk & cell->Exact) {
+			(t, e) := newilk(z.ilk, y.ilk);
+			if(t == cell->Real) {
+				diff := y.r - z.r;
+				return (0, ref Cell.Number(big diff, big 1, diff, cell->Real | e));
+			}
+			else {
 				dn, dd: big;
 				if(y.j == z.j) {
 					dn = y.i - z.i;
@@ -1075,21 +1114,19 @@ minus(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				}
 				if(dd != big 1)
 					(dn, dd) = reduce(dn, dd);
-				return (0, ref Cell.Number(
-					dn, dd, real dn / real dd, cell->Exact));
-			}
-			else {
-				diff := y.r - z.r;
-				return (0, ref Cell.Number(
-					big diff, big 1, diff, cell->Real));
+				if(dd == big 1)
+					t = cell->Integer;
+				else
+					t = cell->Rational;
+				return (0, ref Cell.Number(dn, dd, real dn / real dd, t | e));
 			}
 		* =>
 			cell->error("non-numeric argument to -\n");
-			return (0, nil);
+			return (0, ref Cell.Link(nil));
 		}
 	* =>
 		cell->error("non-numeric argument to -\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	return (0, ref Cell.Number(
 		big 0, big 1, 0.0, cell->Integer|cell->Exact));
@@ -1104,31 +1141,37 @@ modulo(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	y := cell->lcar(l);
 	if(x == nil || y == nil || l == nil || cell->isnil(l)) {
 		cell->error("wrong number of arguments in modulo\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick z := x {
 	Number =>
-		numer = z.i;
+		if((z.ilk & ~cell->Exact) == cell->Real)
+			numer = big z.r;
+		else
+			numer = z.i;
+		pick w := y {
+		Number =>
+			if((w.ilk & ~cell->Exact) == cell->Real)
+				denom = big w.r;
+			else
+				denom = w.i;
+			if (denom == big 0)
+				return (0, ref Cell.Number(big 0, big 1, real 0, cell->Integer));
+			mod := numer % denom;
+			if(denom > big 0 && mod < big 0)
+				mod += denom;
+			else if(denom < big 0 && mod > big 0)
+				mod += denom;
+			return (0, ref Cell.Number(
+				mod, big 1, real mod, cell->Integer | (z.ilk & w.ilk & cell->Exact)));
+		* =>
+			cell->error("non-numeric argument to modulo\n");
+			return (0, ref Cell.Link(nil));
+		}
 	* =>
 		cell->error("non-numeric argument to modulo\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	pick z := y {
-	Number =>
-		denom = z.i;
-	* =>
-		cell->error("non-numeric argument to modulo\n");
-		return (0, nil);
-	}
-	if (denom == big 0)
-		return (0, ref Cell.Number(big 0, big 1, real 0, cell->Integer));
-	mod := numer % denom;
-	if(denom > big 0 && mod < big 0)
-		mod += denom;
-	else if(denom < big 0 && mod > big 0)
-		mod += denom;
-	return (0, ref Cell.Number(
-		mod, big 1, real mod, cell->Integer|cell->Exact));
 }
 
 mult(args: ref Cell, env: list of ref Env): (int, ref Cell)
@@ -1145,25 +1188,29 @@ mult(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		(nil, r) := mult(l, env);
 		pick z := r {
 		Number =>
-			if(y.ilk & z.ilk & cell->Exact) {
+			(t, e) := newilk(z.ilk, y.ilk);
+			if(t == cell->Real) {
+				prod := y.r * z.r;
+				return (0, ref Cell.Number(big prod, big 1, prod, cell->Real | e));
+			}
+			else {
 				pn := y.i * z.i;
 				pd := y.j * z.j;
 				if(pd != big 1)
 					(pn, pd) = reduce(pn, pd);
-				return (0, ref Cell.Number(
-					pn, pd, real pn / real pd, cell->Exact));
-			}
-			else {
-				prod := y.r * z.r;
-				return (0, ref Cell.Number(big prod, big 1, prod, 0));
+				if(pd == big 1)
+					t = cell->Integer;
+				else
+					t = cell->Rational;
+				return (0, ref Cell.Number(pn, pd, real pn / real pd, t | e));
 			}
 		* =>
-			cell->error("non-numeric argument to +\n");
-			return (0, nil);
+			cell->error("non-numeric argument to *\n");
+			return (0, ref Cell.Link(nil));
 		}
 	* =>
-		cell->error("non-numeric argument to +\n");
-		return (0, nil);
+		cell->error("non-numeric argument to *\n");
+		return (0, ref Cell.Link(nil));
 	}
 	return (0, ref Cell.Number(
 		big 0, big 1, 0.0, cell->Integer|cell->Exact));
@@ -1218,12 +1265,15 @@ numequal(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			y = cell->lcar(l);
 			pick yn := y {
 			Number =>
-				if(xn.ilk & yn.ilk & cell->Exact) {
+				(t, nil) := newilk(xn.ilk, yn.ilk);
+				if(t == cell->Real) {
+					if(xn.r != yn.r)
+						return (0, ref Cell.Boolean(0));
+				}
+				else {
 					if(xn.i * yn.j != yn.i * xn.j)
 						return (0, ref Cell.Boolean(0));
 				}
-				else if(xn.r != yn.r)
-					return (0, ref Cell.Boolean(0));
 			* =>
 				cell->error("non-numeric argument to =\n");
 				return (0, nil);
@@ -1253,12 +1303,15 @@ numgeq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			y = cell->lcar(l);
 			pick yn := y {
 			Number =>
-				if(xn.ilk & yn.ilk & cell->Exact) {
+				(t, nil) := newilk(xn.ilk, yn.ilk);
+				if(t == cell->Real) {
+					if(xn.r < yn.r)
+						return (0, ref Cell.Boolean(0));
+				}
+				else {
 					if(xn.i * yn.j < yn.i * xn.j)
 						return (0, ref Cell.Boolean(0));
 				}
-				else if(xn.r < yn.r)
-					return (0, ref Cell.Boolean(0));
 			* =>
 				cell->error("non-numeric argument to >=\n");
 				return (0, nil);
@@ -1288,12 +1341,15 @@ numgreater(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			y = cell->lcar(l);
 			pick yn := y {
 			Number =>
-				if(xn.ilk & yn.ilk & cell->Exact) {
+				(t, nil) := newilk(xn.ilk, yn.ilk);
+				if(t == cell->Real) {
+					if(xn.r <= yn.r)
+						return (0, ref Cell.Boolean(0));
+				}
+				else {
 					if(xn.i * yn.j <= yn.i * xn.j)
 						return (0, ref Cell.Boolean(0));
 				}
-				else if(xn.r <= yn.r)
-					return (0, ref Cell.Boolean(0));
 			* =>
 				cell->error("non-numeric argument to >\n");
 				return (0, nil);
@@ -1323,12 +1379,15 @@ numless(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			y = cell->lcar(l);
 			pick yn := y {
 			Number =>
-				if(xn.ilk & yn.ilk & cell->Exact) {
+				(t, nil) := newilk(xn.ilk, yn.ilk);
+				if(t == cell->Real) {
+					if(xn.r >= yn.r)
+						return (0, ref Cell.Boolean(0));
+				}
+				else {
 					if(xn.i * yn.j >= yn.i * xn.j)
 						return (0, ref Cell.Boolean(0));
 				}
-				else if(xn.r >= yn.r)
-					return (0, ref Cell.Boolean(0));
 			* =>
 				cell->error("non-numeric argument to <\n");
 				return (0, nil);
@@ -1358,12 +1417,15 @@ numleq(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 			y = cell->lcar(l);
 			pick yn := y {
 			Number =>
-				if(xn.ilk & yn.ilk & cell->Exact) {
+				(t, nil) := newilk(xn.ilk, yn.ilk);
+				if(t == cell->Real) {
+					if(xn.r > yn.r)
+						return (0, ref Cell.Boolean(0));
+				}
+				else {
 					if(xn.i * yn.j > yn.i * xn.j)
 						return (0, ref Cell.Boolean(0));
 				}
-				else if(xn.r > yn.r)
-					return (0, ref Cell.Boolean(0));
 			* =>
 				cell->error("non-numeric argument to <=\n");
 				return (0, nil);
@@ -1435,7 +1497,7 @@ numerator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to numerator\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
@@ -1444,12 +1506,12 @@ numerator(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 				n := y.i;
 			else
 				n = -y.i;
-			return (0, ref Cell.Number(n, big 1, real n, cell->Exact));
+			return (0, ref Cell.Number(n, big 1, real n, cell->Integer | (y.ilk & cell->Exact)));
 		}
 	* =>
 		cell->error("non-numeric argument to numerator\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 openinfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1570,26 +1632,24 @@ quotient(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	y := cell->lcar(l);
 	if(x == nil || y == nil || l == nil || cell->isnil(l)) {
 		cell->error("wrong number of arguments in quotient\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	q := big 1;
 	pick z := x {
 	Number =>
-		q = z.i;
+		pick w := y {
+		Number =>
+			q := z.i / w.i;
+			return (0, ref Cell.Number(
+				q, big 1, real q, cell->Integer | (z.ilk & w.ilk & cell->Exact)));
+		* =>
+			cell->error("non-numeric argument to quotient\n");
+			return (0, ref Cell.Link(nil));
+		}
 	* =>
 		cell->error("non-numeric argument to quotiend\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	pick z := y {
-	Number =>
-		q /= z.i;
-		return (0, ref Cell.Number(
-			q, big 1, real q, cell->Integer|cell->Exact));
-	* =>
-		cell->error("non-numeric argument to quotient\n");
-		return (0, nil);
-	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 rationalp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1597,7 +1657,7 @@ rationalp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in rational?\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
@@ -1676,29 +1736,29 @@ remainder(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	y := cell->lcar(l);
 	if(x == nil || y == nil || l == nil || cell->isnil(l)) {
 		cell->error("wrong number of arguments in remainder\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick z := x {
 	Number =>
 		numer = z.i;
+		pick w := y {
+		Number =>
+			denom = w.i;
+			mod := numer % denom;
+			if(numer > big 0 && mod < big 0)
+				mod += denom;
+			else if(numer < big 0 && mod > big 0)
+				mod -= denom;
+			return (0, ref Cell.Number(
+				mod, big 1, real mod, cell->Integer | (z.ilk & w.ilk & cell->Exact)));
+		* =>
+			cell->error("non-numeric argument in remainder\n");
+			return (0, ref Cell.Link(nil));
+		}
 	* =>
 		cell->error("non-numeric argument to remainder\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
-	pick z := y {
-	Number =>
-		denom = z.i;
-	* =>
-		cell->error("non-numeric argument in remainder\n");
-		return (0, nil);
-	}
-	mod := numer % denom;
-	if(numer > big 0 && mod < big 0)
-		mod += denom;
-	else if(numer < big 0 && mod > big 0)
-		mod -= denom;
-	return (0, ref Cell.Number(
-		mod, big 1, real mod, cell->Integer|cell->Exact));
 }
 
 round(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1707,16 +1767,16 @@ round(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to round\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->rint(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, cell->Exact));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Integer | (y.ilk & cell->Exact)));
 	* =>
 		cell->error("non-numeric argument to round\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 schrepenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1782,16 +1842,16 @@ sin(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in sin\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->sin(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	* =>
 		cell->error("non-numeric argument to sin\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 sqrt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -1799,16 +1859,16 @@ sqrt(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in sqrt\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->sqrt(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	* =>
 		cell->error("non-numeric argument to sqrt\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 stringp(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -2230,16 +2290,16 @@ tan(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments in tan\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		n := math->tan(y.r);
-		return (0, ref Cell.Number(big n, big 1, n, 0));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Real));
 	* =>
 		cell->error("non-numeric argument to tan\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 truncate(args: ref Cell, nil: list of ref Env): (int, ref Cell)
@@ -2247,18 +2307,18 @@ truncate(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	x := cell->lcar(args);
 	if(x == nil) {
 		cell->error("wrong number of arguments to truncate\n");
-		return (0, nil);
+		return (0, ref Cell.Link(nil));
 	}
 	pick y := x {
 	Number =>
 		math->FPcontrol(math->RND_Z, math->RND_MASK);
 		n := math->rint(y.r);
 		math->FPcontrol(math->RND_NR, math->RND_MASK);
-		return (0, ref Cell.Number(big n, big 1, n, cell->Exact));
+		return (0, ref Cell.Number(big n, big 1, n, cell->Integer | (y.ilk & cell->Exact)));
 	* =>
 		cell->error("non-numeric argument to truncate\n");
 	}
-	return (0, nil);
+	return (0, ref Cell.Link(nil));
 }
 
 values(nil: ref Cell, nil: list of ref Env): (int, ref Cell)

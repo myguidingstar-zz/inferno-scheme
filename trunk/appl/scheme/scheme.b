@@ -652,14 +652,18 @@ printcell(x: ref Cell, b: ref Iobuf, disp: int)
 			b.puts(sys->sprint("#\\%c", y.c));
 		}
 	Number =>
-		if(y.ilk & cell->Exact) {
-			if(y.j == big 1)
-				b.puts(sys->sprint("%bd", y.i));
-			else
-				b.puts(sys->sprint("%bd/%bd", y.i, y.j));
-		}
-		else
+		case (y.ilk & ~cell->Exact) {
+		cell->Integer =>
+			if(!(y.ilk & cell->Exact))
+				b.puts("#i");
+			b.puts(sys->sprint("%bd", y.i));
+		cell->Rational =>
+			if(!(y.ilk & cell->Exact))
+				b.puts("#i");
+			b.puts(sys->sprint("%bd/%bd", y.i, y.j));
+		* =>
 			b.puts(sys->sprint("%.#g", y.r));
+		}
 	Link =>
 		printlist(y.next, b, disp);
 	Lambda =>
@@ -758,9 +762,13 @@ prefixlp:
 			n2 = big 1;
 		}
 		if (n2 == big 0)
-			return ref Cell.Number(big 0, big 1, real 0, cell->Integer);
+			return ref Cell.Number(big 0, big 1, real 0, cell->Integer|exact);
 		if(n2 != big 1)
 			(n1, n2) = reduce(n1, n2);
+		if(n2 == big 1)
+			ilk = cell->Integer;
+		else
+			ilk = cell->Rational;
 		return ref Cell.Number(n1, n2, real n1 / real n2, ilk|exact);
 	}
 	else {
@@ -770,7 +778,10 @@ prefixlp:
 				s[m] = 'e';
 			}
 		}
-		(n, rs) := str->toreal(s[j:], 10);
+		if(s[j] != '.')
+			(n, rs) := str->toreal(s[j:], 10);
+		else
+			(n, rs) = str->toreal("0" + s[j:], 10);
 		if (rs != nil && (!str->in(rs[0], " \n\r\t\f\v)/") || rs == s1))
 			return ref Cell.Boolean(0);
 		if(n > real 18446744073709551615)
