@@ -1458,29 +1458,30 @@ numtostr(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	}
 	pick xn := x {
 	Number =>
-		if((xn.ilk & cell->Exact) == 0)
+		t := xn.ilk & ~cell->Exact;
+		if(t == cell->Real)
 			return (0, ref Cell.String(sys->sprint("%.#g", xn.r)));
 		case radix {
 		2 =>
-			if(xn.j == big 1)
+			if(t == cell->Integer)
 				return (0, ref Cell.String(binstr(xn.i)));
 			else
 				return (0, ref Cell.String(sys->sprint("%s/%s",
 					binstr(xn.i), binstr(xn.j))));
 		8 =>	
-			if(xn.j == big 1)
+			if(t == cell->Integer)
 				return (0, ref Cell.String(sys->sprint("%bo", xn.i)));
 			else
 				return (0, ref Cell.String(
 					sys->sprint("%bo/%bo", xn.i, xn.j)));
 		16 =>
-			if(xn.j == big 1)
+			if(t == cell->Integer)
 				return (0, ref Cell.String(sys->sprint("%bx", xn.i)));
 			else
 				return (0, ref Cell.String(
 					sys->sprint("%bx/%bx", xn.i, xn.j)));
 		* =>
-			if(xn.j == big 1)
+			if(t == cell->Integer)
 				return (0, ref Cell.String(sys->sprint("%bd", xn.i)));
 			else
 				return (0, ref Cell.String(
