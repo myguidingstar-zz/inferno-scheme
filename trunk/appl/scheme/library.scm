@@ -123,22 +123,19 @@
   (lambda (x e)
     (define sr
       (lambda (x y)
-        (define fx (floor x))
-        (define fy (floor y))
-        (if (>= fx x)
-            fx
-            (if (= fx fy)
-                (+ fx (/ (sr (/ (- y fy)) (/ (- x fx)))))
-                (+ 1 fx)))))
-    (define simplest
-      (lambda (a b)
-        (if (< b a)
-            (simplest b a)
-            (if (>= a b)
-                a
-                (if (positive? a)
-                    (sr a b)
-                    (if (negative? b) (- (sr (- b) (- a))) 0))))))
+        (let ((fx (floor x)) (fy (floor y)))
+          (cond
+            ((not (< fx x)) fx)
+            ((= fx fy) (+ fx (/ (sr (/ (- y fy)) (/ (- x fx))))))
+            (#t (+ 1 fx))))))
+     (define simplest
+      (lambda (x y)
+        (cond
+          ((< y x) (simplest y x))
+          ((not (< x y)) x)
+          ((positive? x) (sr x y))
+          ((negative? y) (- (sr (- y) (- x))))
+          (#t (if (and (exact? x) (exact? y)) 0 0.0)))))
     (simplest (- x e) (+ x e))))
     
 ;(define (rational:simplest x y)
@@ -354,9 +351,10 @@
 ;;;
 (define call-with-input-file
   (lambda (s p)
-    (define port (open-input-file s))
+    (let ((port (open-input-file s)))
     (p port)
-    (close-input-port port)))
+;    (close-input-port port)
+)))
 (define call-with-output-file
   (lambda (s p)
     (define port (open-output-file s))

@@ -372,9 +372,11 @@ force(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		return (0, nil);
 	pick x := p {
 	Promise =>
-		if (x.val == nil) {
+		if(x.val == nil) {
 			lenv := cell->listappend(x.env, env);
-			(x.val, nil) = eval(x.proc, lenv);
+			(c, nil) := eval(x.proc, lenv);
+			if(x.val == nil)
+				x.val = c;
 		}
 		return (0, x.val);
 	}
