@@ -780,6 +780,8 @@ prefixlp:
 		}
 		if(s[j] != '.')
 			(n, rs) := str->toreal(s[j:], 10);
+		else if(len s[j:] <= 1 || s[j+1] < '0' || s[j+1] > '9')
+			return ref Cell.Boolean(0);
 		else
 			(n, rs) = str->toreal("0" + s[j:], 10);
 		if (rs != nil && (!str->in(rs[0], " \n\r\t\f\v)/") || rs == s1))
