@@ -575,7 +575,62 @@ letstar(args: ref Cell, env: list of ref Env): (int, ref Cell)
 
 letrec(args: ref Cell, env: list of ref Env): (int, ref Cell)
 {
-	return letstar(args, env);
+	el: list of ref Env;
+
+	if(args == nil || cell->isnil(args)) {
+		cell->error("too few arguments to let*\n");
+		return (0, nil);
+	}
+	binds := cell->lcar(args);
+	exprs := cell->lcdr(args);
+	if(binds == nil || cell->isnil(binds)) {
+		startbody();
+		r := begin(exprs, env);
+		resetbody();
+		return r;
+	}
+	bl := binds;
+	el = env;
+	do {
+		b := cell->lcar(bl);
+		if(b == nil || cell->isnil(b))
+			break;
+		pick var := cell->lcar(b) {
+		Symbol =>
+			(nil, el) = cell->ldefine(var.sym, ref Cell.Link(nil), el);
+		}
+		bl = cell->lcdr(bl);
+	} while(bl != nil && !(cell->isnil(bl)));
+	bl = binds;
+	do {
+		b := cell->lcar(bl);
+		if(b == nil || cell->isnil(b))
+			break;
+		pick var := cell->lcar(b) {
+		Symbol =>
+			s := cell->lookupsym(var.sym, el);
+			if(s == nil)
+				cell->error(lsys->sprint("internal error: looking %s failed\n", var.sym));
+			else {
+				exp := cell->lcdr(b);
+				(nil, y) := lbegin(exp, el);
+				s.val = y;
+			}
+		}
+		bl = cell->lcdr(bl);
+	} while(bl != nil && !(cell->isnil(bl)));
+	startbody();
+	(t, r) := begin(exprs, el);
+	resetbody();
+	if (t == 0)
+		return (0, r);
+	pick c := r {
+	Continuation =>
+		res := ref Cell.Continuation(c.exp, el);
+		return (1, res);
+	* =>
+		return (0, r);
+	}
 }
 
 lor(args: ref Cell, env: list of ref Env): (int, ref Cell)
