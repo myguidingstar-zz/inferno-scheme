@@ -95,6 +95,7 @@ init(sy: Sys, sch: Scheme, c: SCell, m: Math, st: String,
 	e = ref Env("input-port?", cell->BuiltIn,nil, inportp) :: e;
 	e = ref Env("integer?", cell->BuiltIn, nil, integerp) :: e;
 	e = ref Env("integer->char", cell->BuiltIn, nil, int2char) :: e;
+	e = ref Env("interaction-environment", cell->BuiltIn, nil, interenv) :: e;
 	e = ref Env("list", cell->BuiltIn, nil, llist) :: e;
 	e = ref Env("load", cell->BuiltIn, nil, lload) :: e;
 	e = ref Env("log", cell->BuiltIn, nil, log) :: e;
@@ -978,6 +979,11 @@ int2char(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	return (0, nil);
 }
 
+interenv(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
+{
+	return (2, ref Cell.Environment(cell->globalenv));
+}
+
 llist(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 {
 	return (0, args);
@@ -1228,7 +1234,7 @@ nullenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	pick y := x {
 	Number =>
 		if(y.i == big 5 && y.j == big 1)
-			return (0, ref Cell.Environment(cell->nullenvironment));
+			return (2, ref Cell.Environment(cell->nullenvironment));
 	* =>
 		cell->error("non-numeric argument to null-environment\n");
 	}
@@ -1792,7 +1798,7 @@ schrepenv(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	pick y := x {
 	Number =>
 		if(y.i == big 5 && y.j == big 1)
-			return (0, ref Cell.Environment(cell->reportenv));
+			return (2, ref Cell.Environment(cell->reportenv));
 	* =>
 		cell->error("non-numeric argument to scheme-report-environment\n");
 	}
