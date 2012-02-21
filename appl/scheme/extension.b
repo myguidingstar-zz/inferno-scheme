@@ -55,6 +55,7 @@ init(drawctxt: ref Draw->Context, s: Sys, sch: Scheme, c: SCell,
 	e = ref Env("channel", cell->BuiltIn, nil, lchannel) :: e;
 	e = ref Env("close-inout-port", cell->BuiltIn, nil, closeinoutport) :: e;
 	e = ref Env("open-inout-file", cell->BuiltIn, nil, openinoutfile) :: e;
+	e = ref Env("open-input-string", cell->BuiltIn, nil, openinstr) :: e;
 	e = ref Env("popen", cell->BuiltIn, nil, popen) :: e;
 	e = ref Env("quit", cell->BuiltIn, nil, quit) :: e;
 	e = ref Env("sleep", cell->BuiltIn, nil, lsleep) :: e;
@@ -137,6 +138,27 @@ openinoutfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 		return (0, ref Cell.Port(b, Bufio->ORDWR));
 	* =>
 		cell->error("non-string argument to open-input-file\n");
+	}
+	return (0, nil);
+}
+
+openinstr(args: ref Cell, nil: list of ref Env): (int, ref Cell)
+{
+	x := cell->lcar(args);
+	if(x == nil) {
+		cell->error("wrong number of arguments to open-input-file\n");
+		return (0, nil);
+	}
+	pick y := x {
+	String =>
+		b := bufio->sopen(y.str);
+		if(b == nil) {
+			cell->error(sys->sprint("Cannot open %s: %r\n", y.str));
+			return (0, nil);
+		}
+		return (0, ref Cell.Port(b, Bufio->OREAD));
+	* =>
+		cell->error("non-string argument to open-input-string\n");
 	}
 	return (0, nil);
 }

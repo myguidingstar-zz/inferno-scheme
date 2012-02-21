@@ -66,6 +66,7 @@ init(drawctxt: ref Draw->Context, nil: list of string)
 	cell->globalenv = e;
 	sform->init(sys, load Scheme SELF, cell);
 
+	e = cell->globalenv;
 	cell->nullenvironment = e;
 
 	builtin->init(sys, load Scheme SELF, cell, math, str,
@@ -396,8 +397,10 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 				cell->BuiltIn =>
 					l := evallist(x.next.cdr, lenv);
 					(tailcont, z) = e.handler(l, lenv);
-					if (tailcont == 0) {
-						if (z == nil || cell->isnil(z))
+					if(tailcont == 2)
+						return (z, lenv);
+					else if(tailcont == 0) {
+						if(z == nil || cell->isnil(z))
 							return (z, lenv);
 						pick v := z {
 						Environment =>
@@ -410,8 +413,8 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 						c = z;
 				cell->SpecialForm =>
 					(tailcont, z) = e.handler(x.next.cdr, lenv);
-					if (tailcont == 0) {
-						if (z == nil || cell->isnil(z))
+					if(tailcont == 0) {
+						if(z == nil || cell->isnil(z))
 							return (z, lenv);
 						pick v := z {
 						Environment =>
