@@ -748,7 +748,10 @@ prefixlp:
 
 	# Try to classify the number (ugly ad hoc)
 	# As a first cut, just integers and reals
-	(s1,s2) := str->splitl(s[j:], ".eEsSfFdDlL");
+	if(radix == 10)
+		(s1,s2) := str->splitl(s[j:], ".eEsSfFdDlL");
+	else
+		s2 = nil;
 	if(s2 == nil) {
 		(s1, s2) = str->splitl(s[j:], "/");
 		(n1, rs) := str->tobig(s1, radix);
