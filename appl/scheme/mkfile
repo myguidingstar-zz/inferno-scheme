@@ -27,6 +27,7 @@ LIBDIR=$ROOT/lib/scheme
 
 LIBTARG=\
 	$LIBDIR/library.scm\
+	$LIBDIR/symb.scm\
 
 all:V:	scheme.dis
 
