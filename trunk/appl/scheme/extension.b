@@ -58,6 +58,8 @@ init(drawctxt: ref Draw->Context, s: Sys, sch: Scheme, c: SCell,
 	e = ref Env("open-input-string", cell->BuiltIn, nil, openinstr) :: e;
 	e = ref Env("popen", cell->BuiltIn, nil, popen) :: e;
 	e = ref Env("quit", cell->BuiltIn, nil, quit) :: e;
+	e = ref Env("readfile", cell->BuiltIn, nil, readfile) :: e;
+	e = ref Env("readline", cell->BuiltIn, nil, readline) :: e;
 	e = ref Env("sleep", cell->BuiltIn, nil, lsleep) :: e;
 	e = ref Env("spawn", cell->SpecialForm, nil, lspawn) :: e;
 	cell->globalenv = e;
@@ -193,6 +195,39 @@ popen(args: ref Cell, nil: list of ref Env): (int, ref Cell)
 	rc := ref Cell.Port(rb, Bufio->OREAD);
 	tc := ref Cell.Port(tb, Bufio->OWRITE);
 	return (0, cell->lcons(rc, cell->lcons(tc, ref Cell.Link(nil))));
+}
+
+readfile(args: ref Cell, nil: list of ref Env): (int, ref Cell)
+{
+	if(args == nil || cell->isnil(args))
+		return (0, ref Cell.Link(nil));
+	x := cell->lcar(args);
+	pick y := x {
+	String =>
+		(exists, d) := sys->stat(y.str);
+		if(exists != 0)
+			return (0, ref Cell.Link(nil));
+		buf := array [int d.length] of byte;
+		fd := sys->open(y.str, Sys->OREAD);
+		if(fd == nil)
+			return (0, ref Cell.Link(nil));
+		sys->read(fd, buf, int d.length);
+		return (0, ref Cell.String(string buf));
+	}
+	return (0, ref Cell.Link(nil));
+}
+
+readline(args: ref Cell, nil: list of ref Env): (int, ref Cell)
+{
+	if(args == nil || cell->isnil(args))
+		return (0, ref Cell.Link(nil));
+	x := cell->lcar(args);
+	pick y := x {
+	Port =>
+		s := y.p.gets('\n');
+		return (0, ref Cell.String(s));
+	}
+	return (0, ref Cell.Link(nil));
 }
 
 quit(nil: ref Cell, nil: list of ref Env): (int, ref Cell)
