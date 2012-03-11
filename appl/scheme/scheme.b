@@ -469,16 +469,24 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 					Link =>
 						if(vp.next != nil) {
 							if(dorest) {
+								if(fname == "")
+									cell->error("empty name for define in lambda 1\n");
 								(nil, lenv) = cell->ldefine(fname, vp, lenv);
 								q = nil;
 							}
 							else {
+								if(fname == "") {
+									cell->error("empty name for define in lambda 2\n");
+									printcell(y.formals, stdout, 1);
+								}
 								(nil, lenv) = cell->ldefine(fname, vp.next.car, lenv);
 								q = vp.next.cdr;
 							}
 						}
 						else {
 							if(dorest) {
+								if(fname == "")
+									cell->error("empty name for define in lambda 3\n");
 								(nil, lenv) = cell->ldefine(fname,
 									 ref Cell.Link(nil), lenv);
 							}
@@ -490,6 +498,7 @@ eval(c: ref Cell, env: list of ref Env): (ref Cell, list of ref Env)
 				}
 				if(p != nil || q != nil) {
 					cell->error("wrong number of arguments for lambda\n");
+					printcell(y.formals, stdout, 0);
 					return (nil, lenv);
 				}
 				exp := y.exp_list;

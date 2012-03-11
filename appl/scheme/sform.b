@@ -139,6 +139,8 @@ ldo(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		pick x := cell->lcar(ij) {
 		Symbol =>
 			(r, el) = eval(cell->lcar(cell->lcdr(ij)), el);
+			if(x.sym == "")
+				cell->error("nil name for binding in do\n");
 			(nil, el) = cell->ldefine(x.sym, r, el);
 		}
 		ii = cell->lcdr(ii);
@@ -180,6 +182,8 @@ bigloop:
 					upd := cell->lcar(updl);
 					(r, nil) = eval(upd, el);
 				}
+				if(x.sym == "")
+					cell->error("empty string for define in do 2\n");
 				(nil, nel) = cell->ldefine(x.sym, r, nel);
 			}
 			ii = cell->lcdr(ii);
@@ -310,6 +314,8 @@ innerdef(args: ref Cell, env: list of ref Env): (int, ref Cell)
 	pick y := x {
 	Symbol =>
 		(r, e2) := eval(cell->lcar(l), env);
+		if(y.sym == "")
+			cell->error("empty name for define in innerdef\n");
 		(nil, el) := cell->ldefine(y.sym, r, e2);
 		return (0, ref Cell.Environment(el));
 	Link =>
@@ -324,6 +330,8 @@ innerdef(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				return (0, ref Cell.Symbol(z.sym, e));
 			}
 			(r, e2) := eval(lp, env);
+			if(z.sym == "")
+				cell->error("empty name for define in innerdef 2\n");
 			(nil, el) := cell->ldefine(z.sym, r, e2);
 			return (0, ref Cell.Environment(el));
 		}
@@ -484,6 +492,8 @@ let(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		if(vals == nil)
 			break;
 		(var, val) := hd vals;
+		if(var == "")
+			cell->error("empty name for define in let\n");
 		(nil, el) = cell->ldefine(var, val, el);
 		bl = cell->lcdr(bl);
 		vals = tl vals;
@@ -515,6 +525,8 @@ let(args: ref Cell, env: list of ref Env): (int, ref Cell)
 				cell->lcons(formals,
 				cell->lcons(cell->lcar(exprs), ref Cell.Link(nil))));
 		(r, nil) := eval(lambda_exp, el);
+		if(func_name == "")
+			cell->error("emtpy function name in let\n");
 		(nil, el) = cell->ldefine(func_name, r, el);
 	}
 	startbody();
@@ -557,6 +569,8 @@ letstar(args: ref Cell, env: list of ref Env): (int, ref Cell)
 		Symbol =>
 			exp := cell->lcdr(b);
 			(nil, y) := lbegin(exp, el);
+			if(var.sym == "")
+				cell->error("empty name for define in letstar\n");
 			(nil, el) = cell->ldefine(var.sym, y, el);
 		}
 		bl = cell->lcdr(bl);
@@ -599,6 +613,8 @@ letrec(args: ref Cell, env: list of ref Env): (int, ref Cell)
 			break;
 		pick var := cell->lcar(b) {
 		Symbol =>
+			if(var.sym == "")
+				cell->error("empty name for define in letrec\n");
 			(nil, el) = cell->ldefine(var.sym, ref Cell.Link(nil), el);
 		}
 		bl = cell->lcdr(bl);
